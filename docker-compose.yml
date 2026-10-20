@@ -1,0 +1,52 @@
+services:
+  database:
+    image: postgres:16-alpine
+    container_name: onboardflow-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: OnboardFlowDb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: your_secret_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d OnboardFlowDb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: onboardflow-api
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=database;Port=5432;Database=OnboardFlowDb;Username=postgres;Password=your_secret_password;
+      - JwtSettings__SecretKey=SuperSecretKeyWithSufficientLengthForHS256SecurityPolicyNeed32CharsMin
+      - JwtSettings__Issuer=OnboardFlowAPI
+      - JwtSettings__Audience=OnboardFlowClients
+    ports:
+      - "5000:5000"
+    depends_on:
+      database:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: onboardflow-web
+    restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://backend:5000/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

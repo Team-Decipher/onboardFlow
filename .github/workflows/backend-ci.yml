@@ -1,0 +1,34 @@
+name: Backend CI (.NET Core API)
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'src/server/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/server/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 8.0 SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore Dependencies
+      run: dotnet restore src/server/OnboardFlow.sln
+
+    - name: Build Solution
+      run: dotnet build src/server/OnboardFlow.sln --no-restore --configuration Release
+
+    - name: Run xUnit Test Suite
+      run: dotnet test src/server/OnboardFlow.sln --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage"

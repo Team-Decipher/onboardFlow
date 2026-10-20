@@ -1,0 +1,32 @@
+# ==========================================
+# ASP.NET Core Multi-Stage Dockerfile
+# ==========================================
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /app
+
+# Copy solution and project definitions for caching restore
+COPY src/server/OnboardFlow.sln ./src/server/
+COPY src/server/OnboardFlow.Core/*.csproj ./src/server/OnboardFlow.Core/
+COPY src/server/OnboardFlow.Application/*.csproj ./src/server/OnboardFlow.Application/
+COPY src/server/OnboardFlow.Infrastructure/*.csproj ./src/server/OnboardFlow.Infrastructure/
+COPY src/server/OnboardFlow.API/*.csproj ./src/server/OnboardFlow.API/
+COPY src/server/OnboardFlow.Tests/*.csproj ./src/server/OnboardFlow.Tests/
+
+RUN dotnet restore src/server/OnboardFlow.sln
+
+# Copy all source files and publish
+COPY src/server/ ./src/server/
+WORKDIR /app/src/server/OnboardFlow.API
+RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
+
+# ==========================================
+# Runtime Image
+# ==========================================
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+WORKDIR /app
+EXPOSE 5000
+ENV ASPNETCORE_URLS=http://+:5000
+ENV ASPNETCORE_ENVIRONMENT=Production
+
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet", "OnboardFlow.API.dll"]
