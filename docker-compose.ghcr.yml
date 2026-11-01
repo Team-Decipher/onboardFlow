@@ -1,0 +1,7 @@
+services:
+  backend:
+    image: ghcr.io/team-decipher/onboardflow-backend-dev:latest
+    pull_policy: always
+  frontend:
+    image: ghcr.io/team-decipher/onboardflow-frontend-dev:latest
+    pull_policy: always
