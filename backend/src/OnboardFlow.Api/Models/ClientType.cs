@@ -12,3 +12,4 @@ public class ClientType
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public string CreatedBy { get; set; } = "System administrator";
 }
+

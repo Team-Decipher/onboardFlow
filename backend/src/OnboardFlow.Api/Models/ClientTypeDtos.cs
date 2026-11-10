@@ -50,3 +50,4 @@ public class ChecklistTemplateDto
     public int RequiredCount { get; set; }
     public int OptionalCount { get; set; }
 }
+

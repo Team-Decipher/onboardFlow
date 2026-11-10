@@ -607,3 +607,4 @@ export default function ClientTypesPage() {
     </div>
   );
 }
+

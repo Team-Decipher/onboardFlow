@@ -16,3 +16,4 @@ public class ChecklistTemplate
 
     public ICollection<ClientType> ClientTypes { get; set; } = new List<ClientType>();
 }
+

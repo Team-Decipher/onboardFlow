@@ -38,3 +38,4 @@ public class ChecklistTemplatesController : ControllerBase
         return Ok(templates);
     }
 }
+
