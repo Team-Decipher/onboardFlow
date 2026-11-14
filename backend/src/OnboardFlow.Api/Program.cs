@@ -1,3 +1,4 @@
+using System;
 using Microsoft.EntityFrameworkCore;
 using OnboardFlow.Api.Data;
 
@@ -32,10 +33,33 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Apply database migrations automatically on startup
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var db = services.GetService<AppDbContext>();
+    if (db != null)
+    {
+        try
+        {
+            db.Database.Migrate();
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogError(ex, "An error occurred while migrating the database.");
+        }
+    }
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "OnboardFlow API v1");
+        options.RoutePrefix = "swagger";
+    });
 }
 else
 {
