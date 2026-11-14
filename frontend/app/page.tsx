@@ -1,28 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import LoginPage from "./login/page";
 import DashboardPage from "./dashboard/page";
 
+const emptySubscribe = () => () => {};
+
 export default function Home() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const isMounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
 
-  useEffect(() => {
-    // Check if token exists in localStorage
-    const token = localStorage.getItem("onboardflow_token");
-    setIsAuthenticated(!!token);
+  const token = useSyncExternalStore(
+    (callback) => {
+      window.addEventListener("storage", callback);
+      return () => window.removeEventListener("storage", callback);
+    },
+    () => localStorage.getItem("onboardflow_token"),
+    () => null
+  );
 
-    const handleStorageChange = () => {
-      const updatedToken = localStorage.getItem("onboardflow_token");
-      setIsAuthenticated(!!updatedToken);
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
-
-  // Avoid flash before reading local storage
-  if (isAuthenticated === null) {
+  if (!isMounted) {
     return (
       <div className="min-h-screen bg-[#0d272d] flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-400"></div>
@@ -30,6 +30,5 @@ export default function Home() {
     );
   }
 
-  // If not logged in, show Login Screen. When logged in, show the Workflow Interface!
-  return isAuthenticated ? <DashboardPage /> : <LoginPage />;
+  return token ? <DashboardPage /> : <LoginPage />;
 }

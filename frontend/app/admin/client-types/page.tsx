@@ -105,51 +105,55 @@ export default function ClientTypesPage() {
   const [formDescription, setFormDescription] = useState(DEFAULT_CLIENT_TYPES[0].description);
 
   // Status & Feedback
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-  // Fetch client types and templates from backend
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [clientTypesRes, templatesRes] = await Promise.all([
-        fetch(`${apiUrl}/api/client-types`),
-        fetch(`${apiUrl}/api/client-types/templates`),
-      ]);
+  useEffect(() => {
+    let ignore = false;
+    const fetchData = async () => {
+      try {
+        const [clientTypesRes, templatesRes] = await Promise.all([
+          fetch(`${apiUrl}/api/client-types`),
+          fetch(`${apiUrl}/api/client-types/templates`),
+        ]);
 
-      if (clientTypesRes.ok) {
-        const typesData: ClientType[] = await clientTypesRes.json();
-        if (typesData.length > 0) {
-          setClientTypes(typesData);
-          if (!selectedClientType || !typesData.some((t) => t.id === selectedClientType.id)) {
-            setSelectedClientType(typesData[0]);
-            setFormName(typesData[0].name);
-            setFormTemplateId(typesData[0].defaultChecklistTemplateId || "");
-            setFormDescription(typesData[0].description);
+        if (ignore) return;
+
+        if (clientTypesRes.ok) {
+          const typesData: ClientType[] = await clientTypesRes.json();
+          if (typesData.length > 0 && !ignore) {
+            setClientTypes(typesData);
+            setSelectedClientType((prev) => {
+              if (!prev || !typesData.some((t) => t.id === prev.id)) {
+                setFormName(typesData[0].name);
+                setFormTemplateId(typesData[0].defaultChecklistTemplateId || "");
+                setFormDescription(typesData[0].description);
+                return typesData[0];
+              }
+              return prev;
+            });
           }
         }
-      }
 
-      if (templatesRes.ok) {
-        const tplData: ChecklistTemplate[] = await templatesRes.json();
-        if (tplData.length > 0) {
-          setTemplates(tplData);
+        if (templatesRes.ok && !ignore) {
+          const tplData: ChecklistTemplate[] = await templatesRes.json();
+          if (tplData.length > 0) {
+            setTemplates(tplData);
+          }
         }
+      } catch (err) {
+        console.warn("Could not reach backend API, running with initial local data", err);
       }
-    } catch (err) {
-      console.warn("Could not reach backend API, running with initial local data", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+    void fetchData();
+    return () => {
+      ignore = true;
+    };
+  }, [apiUrl]);
 
   const handleEditClick = (clientType: ClientType) => {
     setIsCreating(false);
@@ -251,7 +255,7 @@ export default function ClientTypesPage() {
         setSelectedClientType(updated);
         setSuccessMessage(`Client type "${updated.name}" updated successfully.`);
       }
-    } catch (err: any) {
+    } catch {
       // Local optimistic fallback if offline
       const chosenTemplate = templates.find((t) => t.id === formTemplateId);
       if (isCreating) {
