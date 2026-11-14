@@ -38,6 +38,143 @@ namespace OnboardFlow.Api.Migrations
                     b.ToTable("HealthChecks");
                 });
 
+            modelBuilder.Entity("OnboardFlow.Api.Models.ChecklistTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<int>("OptionalCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RequiredCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ChecklistTemplates");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "System administrator",
+                            Description = "Complete enterprise compliance, financial verification and multi-stage executive signoff.",
+                            Name = "Enterprise onboarding",
+                            OptionalCount = 2,
+                            RequiredCount = 6,
+                            Version = "v3"
+                        },
+                        new
+                        {
+                            Id = new Guid("22222222-2222-2222-2222-222222222222"),
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "System administrator",
+                            Description = "A streamlined verification pack designed for small and medium tier operations.",
+                            Name = "SME onboarding",
+                            OptionalCount = 1,
+                            RequiredCount = 4,
+                            Version = "v2"
+                        },
+                        new
+                        {
+                            Id = new Guid("33333333-3333-3333-3333-333333333333"),
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "System administrator",
+                            Description = "Partner governance agreements and channel accreditation verification.",
+                            Name = "Partner onboarding",
+                            OptionalCount = 1,
+                            RequiredCount = 5,
+                            Version = "v1"
+                        });
+                });
+
+            modelBuilder.Entity("OnboardFlow.Api.Models.ClientType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("DefaultChecklistTemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DefaultChecklistTemplateId");
+
+                    b.ToTable("ClientTypes");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "System administrator",
+                            DefaultChecklistTemplateId = new Guid("11111111-1111-1111-1111-111111111111"),
+                            Description = "Larger organisations with extended compliance requirements.",
+                            Name = "Enterprise"
+                        },
+                        new
+                        {
+                            Id = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "System administrator",
+                            DefaultChecklistTemplateId = new Guid("22222222-2222-2222-2222-222222222222"),
+                            Description = "A focused checklist for small and medium businesses.",
+                            Name = "SME"
+                        },
+                        new
+                        {
+                            Id = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+                            CreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "System administrator",
+                            DefaultChecklistTemplateId = new Guid("33333333-3333-3333-3333-333333333333"),
+                            Description = "Agreement-led onboarding for partner organisations.",
+                            Name = "Partner"
+                        });
+                });
+
             modelBuilder.Entity("OnboardFlow.Api.Modules.UsersAndAccess.Domain.AuditEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -166,6 +303,16 @@ namespace OnboardFlow.Api.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
+            modelBuilder.Entity("OnboardFlow.Api.Models.ClientType", b =>
+                {
+                    b.HasOne("OnboardFlow.Api.Models.ChecklistTemplate", "DefaultChecklistTemplate")
+                        .WithMany("ClientTypes")
+                        .HasForeignKey("DefaultChecklistTemplateId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("DefaultChecklistTemplate");
+                });
+
             modelBuilder.Entity("OnboardFlow.Api.Modules.UsersAndAccess.Domain.User", b =>
                 {
                     b.HasOne("OnboardFlow.Api.Modules.UsersAndAccess.Domain.ClientOrganisation", "ClientOrganisation")
@@ -174,6 +321,11 @@ namespace OnboardFlow.Api.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("ClientOrganisation");
+                });
+
+            modelBuilder.Entity("OnboardFlow.Api.Models.ChecklistTemplate", b =>
+                {
+                    b.Navigation("ClientTypes");
                 });
 
             modelBuilder.Entity("OnboardFlow.Api.Modules.UsersAndAccess.Domain.ClientOrganisation", b =>
