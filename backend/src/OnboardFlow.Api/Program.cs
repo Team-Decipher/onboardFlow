@@ -1,11 +1,17 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using OnboardFlow.Api.Data;
+using OnboardFlow.Api.Modules.UsersAndAccess.Authorization;
+using OnboardFlow.Api.Modules.UsersAndAccess.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddScoped<ITokenService, TokenService>();
 
 // Database connection
 var connectionString = builder.Configuration.GetConnectionString("Default");
@@ -30,6 +36,33 @@ builder.Services.AddCors(options =>
     });
 });
 
+// --- JWT Authentication Configuration ---
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "dev-only-change-me-use-at-least-32-characters";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "OnboardFlow";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "OnboardFlowClient";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        RoleClaimType = System.Security.Claims.ClaimTypes.Role
+    };
+});
+
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -44,8 +77,18 @@ else
 
 app.UseCors();
 
+// Authentication MUST be before Authorization!
+app.UseAuthentication();
+app.UseMiddleware<ActiveUserMiddleware>(); // 🔒 Rejects deactivated users on all authenticated requests
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Seed initial database records
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await DbSeeder.SeedAsync(dbContext);
+}
 
 app.Run();

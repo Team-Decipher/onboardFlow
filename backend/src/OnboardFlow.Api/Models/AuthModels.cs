@@ -1,3 +1,5 @@
+using System;
+
 namespace OnboardFlow.Api.Models;
 
 public class LoginRequest
@@ -13,6 +15,8 @@ public class UserDto
     public string FullName { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public string Company { get; set; } = string.Empty;
+    public Guid? ClientOrganisationId { get; set; }
+    public bool IsActive { get; set; } = true;
 }
 
 public class LoginResponse
