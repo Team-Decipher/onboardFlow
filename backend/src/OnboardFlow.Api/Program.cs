@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OnboardFlow.Api.Data;
+using OnboardFlow.Api.Modules.Checklists.Repositories;
+using OnboardFlow.Api.Modules.Checklists.Services;
 using OnboardFlow.Api.Modules.UsersAndAccess.Authorization;
 using OnboardFlow.Api.Modules.UsersAndAccess.Services;
 
@@ -13,6 +15,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IChecklistItemRepository, ChecklistItemRepository>();
+builder.Services.AddScoped<IChecklistItemService, ChecklistItemService>();
 
 // Database connection
 var connectionString = builder.Configuration.GetConnectionString("Default");

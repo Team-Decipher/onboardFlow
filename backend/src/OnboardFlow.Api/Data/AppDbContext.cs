@@ -2,6 +2,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using OnboardFlow.Api.Common.Authorization;
 using OnboardFlow.Api.Models;
+using OnboardFlow.Api.Modules.Checklists.Domain;
 using OnboardFlow.Api.Modules.UsersAndAccess.Domain;
 
 namespace OnboardFlow.Api.Data;
@@ -16,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<AuditEntry> AuditLogs => Set<AuditEntry>();
     public DbSet<ClientType> ClientTypes => Set<ClientType>();
     public DbSet<ChecklistTemplate> ChecklistTemplates => Set<ChecklistTemplate>();
+    public DbSet<ChecklistItem> ChecklistItems => Set<ChecklistItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -78,6 +80,30 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Version).IsRequired().HasMaxLength(20);
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.CreatedBy).HasMaxLength(100);
+        });
+
+        // ChecklistItem configuration
+        modelBuilder.Entity<ChecklistItem>(entity =>
+        {
+            entity.ToTable("ChecklistItems");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.DocumentName).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.IsRequired).HasDefaultValue(true);
+            entity.Property(e => e.OrderIndex).HasDefaultValue(1);
+            entity.Property(e => e.CreatedBy).HasMaxLength(100);
+
+            entity.HasOne(e => e.ChecklistTemplate)
+                  .WithMany(t => t.Items)
+                  .HasForeignKey(e => e.ChecklistTemplateId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.AssignedReviewer)
+                  .WithMany()
+                  .HasForeignKey(e => e.AssignedReviewerId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(e => e.ChecklistTemplateId);
+            entity.HasIndex(e => new { e.ChecklistTemplateId, e.OrderIndex });
         });
 
         // Seed initial templates and client types matching Figma design

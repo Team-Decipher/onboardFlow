@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using OnboardFlow.Api.Modules.Checklists.Domain;
 
 namespace OnboardFlow.Api.Models;
 
@@ -15,5 +16,5 @@ public class ChecklistTemplate
     public string CreatedBy { get; set; } = "System administrator";
 
     public ICollection<ClientType> ClientTypes { get; set; } = new List<ClientType>();
+    public ICollection<ChecklistItem> Items { get; set; } = new List<ChecklistItem>();
 }
-

@@ -175,6 +175,55 @@ namespace OnboardFlow.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("OnboardFlow.Api.Modules.Checklists.Domain.ChecklistItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssignedReviewerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChecklistTemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("DocumentName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsRequired")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("OrderIndex")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedReviewerId");
+
+                    b.HasIndex("ChecklistTemplateId");
+
+                    b.HasIndex("ChecklistTemplateId", "OrderIndex");
+
+                    b.ToTable("ChecklistItems", (string)null);
+                });
+
             modelBuilder.Entity("OnboardFlow.Api.Modules.UsersAndAccess.Domain.AuditEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -313,6 +362,24 @@ namespace OnboardFlow.Api.Migrations
                     b.Navigation("DefaultChecklistTemplate");
                 });
 
+            modelBuilder.Entity("OnboardFlow.Api.Modules.Checklists.Domain.ChecklistItem", b =>
+                {
+                    b.HasOne("OnboardFlow.Api.Modules.UsersAndAccess.Domain.User", "AssignedReviewer")
+                        .WithMany()
+                        .HasForeignKey("AssignedReviewerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("OnboardFlow.Api.Models.ChecklistTemplate", "ChecklistTemplate")
+                        .WithMany("Items")
+                        .HasForeignKey("ChecklistTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AssignedReviewer");
+
+                    b.Navigation("ChecklistTemplate");
+                });
+
             modelBuilder.Entity("OnboardFlow.Api.Modules.UsersAndAccess.Domain.User", b =>
                 {
                     b.HasOne("OnboardFlow.Api.Modules.UsersAndAccess.Domain.ClientOrganisation", "ClientOrganisation")
@@ -326,6 +393,8 @@ namespace OnboardFlow.Api.Migrations
             modelBuilder.Entity("OnboardFlow.Api.Models.ChecklistTemplate", b =>
                 {
                     b.Navigation("ClientTypes");
+
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("OnboardFlow.Api.Modules.UsersAndAccess.Domain.ClientOrganisation", b =>
