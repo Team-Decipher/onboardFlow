@@ -27,34 +27,28 @@ export default function LoginPage() {
 
       if (res.ok) {
         const data = await res.json();
-        // Save session locally
+        // Save session in localStorage and Cookies for Next.js middleware
         localStorage.setItem("onboardflow_token", data.token);
         localStorage.setItem("onboardflow_user", JSON.stringify(data.user));
-        // Redirect to dashboard (the workflow page)
+
+        document.cookie = `onboardflow_token=${data.token}; path=/; max-age=28800; SameSite=Lax`;
+        document.cookie = `onboardflow_role=${data.user.role}; path=/; max-age=28800; SameSite=Lax`;
+
         router.push("/dashboard");
       } else {
         const errData = await res.json().catch(() => null);
-        setErrorMessage(errData?.message || "Invalid email or password. Please try again.");
+        setErrorMessage(
+          errData?.message || "Invalid email or password. Please try again."
+        );
       }
     } catch {
-      // In offline mode or container startup fallback, allow smooth entry
-      localStorage.setItem("onboardflow_token", "mock-offline-token");
-      localStorage.setItem(
-        "onboardflow_user",
-        JSON.stringify({
-          fullName: "Sarah Jenkins",
-          email: email || "admin@onboardflow.com",
-          role: "Compliance Lead",
-          company: "Apex Global Advisory Partners",
-        })
-      );
-      router.push("/dashboard");
+      setErrorMessage("Network error: Unable to reach the authentication service.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleQuickFill = (userEmail: string, roleName: string) => {
+  const handleQuickFill = (userEmail: string) => {
     setEmail(userEmail);
     setPassword("password123");
     setErrorMessage(null);
@@ -78,7 +72,6 @@ export default function LoginPage() {
 
       {/* Main Login Card Area */}
       <main className="w-full max-w-md mx-auto my-auto flex flex-col pt-8 pb-12">
-        {/* Hero Title Above Card */}
         <div className="mb-8 text-center sm:text-left">
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
             Sign in to OnboardFlow
@@ -88,7 +81,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* The White Login Card Matching Screenshot Theme */}
+        {/* The White Login Card */}
         <div className="bg-white text-slate-900 rounded-[22px] p-7 sm:p-9 shadow-2xl shadow-black/40 transition-all duration-300">
           <form onSubmit={handleLogin} className="space-y-5">
             {errorMessage && (
@@ -185,33 +178,48 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Quick Demo Switcher */}
+          {/* Quick Demo Switcher with 4 Official Roles */}
           <div className="mt-6 pt-5 border-t border-slate-100">
             <span className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5 text-center">
-              Quick Demo Accounts
+              Quick Role Switcher (4 System Roles)
             </span>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => handleQuickFill("admin@onboardflow.com", "Compliance Lead")}
+                onClick={() => handleQuickFill("admin@onboardflow.com")}
                 className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-100 text-left transition-colors"
               >
                 <div className="text-xs font-semibold text-slate-800">Sarah Jenkins</div>
-                <div className="text-[10px] text-slate-500">Compliance Lead</div>
+                <div className="text-[10px] text-teal-700 font-medium">Administrator</div>
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickFill("partner@onboardflow.com", "Managing Partner")}
+                onClick={() => handleQuickFill("manager@onboardflow.com")}
                 className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-100 text-left transition-colors"
               >
-                <div className="text-xs font-semibold text-slate-800">Marcus Vance</div>
-                <div className="text-[10px] text-slate-500">Managing Partner</div>
+                <div className="text-xs font-semibold text-slate-800">Kasun J.</div>
+                <div className="text-[10px] text-blue-700 font-medium">Onboarding Manager</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickFill("reviewer@onboardflow.com")}
+                className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-100 text-left transition-colors"
+              >
+                <div className="text-xs font-semibold text-slate-800">Amara Silva</div>
+                <div className="text-[10px] text-purple-700 font-medium">Reviewer</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickFill("client@example.com")}
+                className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-100 text-left transition-colors"
+              >
+                <div className="text-xs font-semibold text-slate-800">Nimali Perera</div>
+                <div className="text-[10px] text-emerald-700 font-medium">Client</div>
               </button>
             </div>
           </div>
         </div>
 
-        {/* Footer Sub-caption */}
         <div className="mt-8 text-center sm:text-left">
           <p className="text-xs font-semibold tracking-wider text-[#688a91] uppercase">
             CLIENT ONBOARDING & DOCUMENT WORKFLOW
@@ -221,25 +229,7 @@ export default function LoginPage() {
 
       {/* Bottom Footer */}
       <footer className="w-full max-w-5xl mx-auto pt-6 border-t border-[#163840] flex flex-col sm:flex-row items-center justify-between text-xs text-[#6e8e95] gap-3">
-        <span>Team Decipher Group 28 · OnboardFlow Authentication</span>
-        <div className="flex gap-4">
-          <a
-            href="http://localhost:5000/api/auth/me"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-emerald-300 transition-colors underline"
-          >
-            Auth API Spec ↗
-          </a>
-          <a
-            href="http://localhost:5000/openapi/v1.json"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-emerald-300 transition-colors underline"
-          >
-            OpenAPI Docs ↗
-          </a>
-        </div>
+        <span>Team Decipher Group 28 · OnboardFlow RBAC Portal</span>
       </footer>
     </div>
   );
