@@ -15,6 +15,8 @@ namespace OnboardFlow.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
+    private const string SignInErrorMessage = "Unable to sign in. Check your email and password, then try again.";
+
     private readonly AppDbContext _dbContext;
     private readonly ITokenService _tokenService;
 
@@ -24,9 +26,46 @@ public class AuthController : ControllerBase
         _tokenService = tokenService;
     }
 
+    // ─── Helpers ───────────────────────────────────────────────────────────────
+
+    private static string BuildInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return string.Empty;
+
+        var parts = fullName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1)
+        {
+            // Single-word name: first 2 chars
+            var word = parts[0];
+            return word.Length >= 2
+                ? word[..2].ToUpperInvariant()
+                : word.ToUpperInvariant();
+        }
+
+        // Multi-word: first letter of first + first letter of last
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+    }
+
+    private static UserDto MapToUserDto(User user) => new()
+    {
+        Id = user.Id.ToString(),
+        Email = user.Email,
+        FullName = user.FullName,
+        Role = user.Role,
+        Company = user.ClientOrganisation?.Name ?? "OnboardFlow Internal",
+        ClientOrganisationId = user.ClientOrganisationId,
+        ClientOrganisationName = user.ClientOrganisation?.Name,
+        Initials = BuildInitials(user.FullName),
+        IsActive = user.IsActive
+    };
+
+    // ─── POST /api/auth/login ──────────────────────────────────────────────────
+
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
     {
+        // Basic field presence check (400 for missing fields; 401 for everything else)
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
         {
             return BadRequest(new { message = "Email and password are required." });
@@ -37,39 +76,44 @@ public class AuthController : ControllerBase
             .Include(u => u.ClientOrganisation)
             .FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail);
 
+        // User not found
         if (user == null)
         {
-            return BadRequest(new { message = "Invalid email or password." });
+            return Unauthorized(new { message = SignInErrorMessage });
         }
 
-        // Verify password
+        // Password mismatch
         if (!DbSeeder.VerifyPassword(request.Password, user.PasswordHash))
         {
-            return BadRequest(new { message = "Invalid email or password." });
+            return Unauthorized(new { message = SignInErrorMessage });
         }
 
-        // 🔒 Reject deactivated users at login
+        // Deactivated account
         if (!user.IsActive)
         {
-            return StatusCode(StatusCodes.Status403Forbidden, new
-            {
-                message = "Your account has been deactivated. Please contact your administrator."
-            });
+            return Unauthorized(new { message = SignInErrorMessage });
         }
 
-        var userDto = new UserDto
+        // Role tab validation: if caller specifies a role it must match the stored role
+        if (!string.IsNullOrEmpty(request.Role) &&
+            !string.Equals(request.Role, user.Role, StringComparison.OrdinalIgnoreCase))
         {
-            Id = user.Id.ToString(),
-            Email = user.Email,
-            FullName = user.FullName,
-            Role = user.Role,
-            Company = user.ClientOrganisation?.Name ?? "OnboardFlow Internal",
-            ClientOrganisationId = user.ClientOrganisationId,
-            IsActive = user.IsActive
-        };
+            return Unauthorized(new { message = SignInErrorMessage });
+        }
+
+        // Client users must belong to an organisation
+        if (user.Role == AppRoles.Client && user.ClientOrganisationId == null)
+        {
+            return Unauthorized(new { message = SignInErrorMessage });
+        }
+
+        var userDto = MapToUserDto(user);
 
         // Generates JWT containing role, userId, clientOrganisationId, email, and name
         var token = _tokenService.GenerateToken(userDto);
+
+        // Calculate expiry (matches the 8-hour window in TokenService)
+        var expiresAt = DateTime.UtcNow.AddHours(8).ToString("o"); // ISO 8601
 
         // Record audit entry
         _dbContext.AuditLogs.Add(new AuditEntry
@@ -88,17 +132,48 @@ public class AuthController : ControllerBase
         return Ok(new LoginResponse
         {
             Token = token,
+            ExpiresAt = expiresAt,
             Message = "Authentication successful",
             User = userDto
         });
     }
+
+    // ─── POST /api/auth/logout ─────────────────────────────────────────────────
+
+    [Authorize]
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
+    {
+        var userIdString = User.FindFirstValue("userId")
+                        ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        // Write audit entry (best-effort; we still return 200 even if claims are missing)
+        _dbContext.AuditLogs.Add(new AuditEntry
+        {
+            Action = "USER_LOGOUT",
+            ActorId = userIdString,
+            ActorEmail = User.FindFirstValue(ClaimTypes.Email)
+                      ?? User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email),
+            ActorRole = User.FindFirstValue(ClaimTypes.Role)
+                     ?? User.FindFirstValue("role"),
+            TargetEntity = "User",
+            TargetId = userIdString,
+            Details = $"User '{userIdString}' signed out.",
+            TimestampUtc = DateTime.UtcNow
+        });
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new { message = "Signed out successfully." });
+    }
+
+    // ─── GET /api/auth/me ─────────────────────────────────────────────────────
 
     // 🔒 Any active authenticated user can access /me
     [Authorize]
     [HttpGet("me")]
     public async Task<ActionResult<object>> GetCurrentUser()
     {
-        var userIdString = User.FindFirstValue("userId") 
+        var userIdString = User.FindFirstValue("userId")
                         ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (!Guid.TryParse(userIdString, out var userId))
@@ -122,12 +197,15 @@ public class AuthController : ControllerBase
             email = user.Email,
             fullName = user.FullName,
             role = user.Role,
+            initials = BuildInitials(user.FullName),
             company = user.ClientOrganisation?.Name ?? "OnboardFlow Internal",
             clientOrganisationId = user.ClientOrganisationId,
-            isActive = user.IsActive,
-            message = "Access granted to authenticated user"
+            clientOrganisationName = user.ClientOrganisation?.Name,
+            isActive = user.IsActive
         });
     }
+
+    // ─── Demo role-restricted endpoints (kept as-is) ──────────────────────────
 
     // 🔒 ONLY Administrator role
     [Authorize(Roles = AppRoles.Administrator)]
