@@ -24,6 +24,19 @@ public class UserDto
     public string? ClientOrganisationName { get; set; }
     public string Initials { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
+
+    /// <summary>Derives display initials from a full name (domain logic lives on the model).</summary>
+    public static string BuildInitials(string? fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName)) return "??";
+        var parts = fullName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1)
+        {
+            var word = parts[0];
+            return (word.Length >= 2 ? word[..2] : word).ToUpperInvariant();
+        }
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+    }
 }
 
 public class LoginResponse

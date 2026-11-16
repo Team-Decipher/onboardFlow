@@ -13,6 +13,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IPasswordHasher, Sha256PasswordHasher>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 // Database connection
 var connectionString = builder.Configuration.GetConnectionString("Default");
