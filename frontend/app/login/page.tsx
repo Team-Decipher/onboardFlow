@@ -2,151 +2,319 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+interface RoleOption {
+  label: string;
+  roleKey: string;
+  placeholder: string;
+  redirect: string;
+}
+
+const ROLES: RoleOption[] = [
+  {
+    label: "Administrator",
+    roleKey: "Administrator",
+    placeholder: "admin@example.com",
+    redirect: "/client-organisations",
+  },
+  {
+    label: "Onboarding Manager",
+    roleKey: "OnboardingManager",
+    placeholder: "kasun@example.com",
+    redirect: "/overview",
+  },
+  {
+    label: "Reviewer",
+    roleKey: "Reviewer",
+    placeholder: "amara@example.com",
+    redirect: "/review-queue",
+  },
+  {
+    label: "Client",
+    roleKey: "Client",
+    placeholder: "nimali@example.com",
+    redirect: "/your-onboarding",
+  },
+];
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@onboardflow.com");
-  const [password, setPassword] = useState("password123");
-  const [rememberMe, setRememberMe] = useState(true);
+  const [selectedRoleIndex, setSelectedRoleIndex] = useState(0);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState(false);
 
+  const selectedRole = ROLES[selectedRoleIndex];
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const emailInvalid = emailTouched && email !== "" && !isValidEmail(email);
+
+  const handleRoleSelect = (index: number) => {
+    setSelectedRoleIndex(index);
+    setLoginError(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setErrorMessage(null);
+    setLoginError(false);
 
     try {
       const res = await fetch(`${apiUrl}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email,
+          password,
+          role: selectedRole.roleKey,
+        }),
       });
 
       if (res.ok) {
         const data = await res.json();
-        // Save session in localStorage and Cookies for Next.js middleware
         localStorage.setItem("onboardflow_token", data.token);
         localStorage.setItem("onboardflow_user", JSON.stringify(data.user));
-
         document.cookie = `onboardflow_token=${data.token}; path=/; max-age=28800; SameSite=Lax`;
         document.cookie = `onboardflow_role=${data.user.role}; path=/; max-age=28800; SameSite=Lax`;
 
-        router.push("/dashboard");
+        const redirect =
+          ROLES.find((r) => r.roleKey === data.user?.role)?.redirect ??
+          "/client-organisations";
+        router.push(redirect);
       } else {
-        const errData = await res.json().catch(() => null);
-        setErrorMessage(
-          errData?.message || "Invalid email or password. Please try again."
-        );
+        setLoginError(true);
       }
     } catch {
-      setErrorMessage("Network error: Unable to reach the authentication service.");
+      setLoginError(true);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleQuickFill = (userEmail: string) => {
-    setEmail(userEmail);
-    setPassword("password123");
-    setErrorMessage(null);
-  };
-
   return (
-    <div className="min-h-screen bg-[#0d272d] text-white flex flex-col justify-between px-6 py-10 sm:px-12 lg:px-20 font-sans selection:bg-[#00796b] selection:text-white">
-      {/* Top Header */}
-      <header className="w-full max-w-5xl mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-            OnboardFlow
-          </span>
+    <div className="min-h-screen flex font-sans">
+      {/* ── Left Panel ── */}
+      <div className="hidden lg:flex lg:w-1/2 bg-[#0F292E] flex-col justify-between p-10">
+        {/* Logo */}
+        <div>
+          <span className="text-white font-bold text-lg">OnboardFlow</span>
         </div>
 
-        <div className="flex items-center gap-2 bg-[#12363e]/70 border border-[#1b4650] px-3 py-1.5 rounded-full text-xs text-[#a0bac0]">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Docker Dev Environment</span>
-        </div>
-      </header>
-
-      {/* Main Login Card Area */}
-      <main className="w-full max-w-md mx-auto my-auto flex flex-col pt-8 pb-12">
-        <div className="mb-8 text-center sm:text-left">
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
-            Sign in to OnboardFlow
+        {/* Centre copy */}
+        <div>
+          <h1 className="text-white text-3xl font-bold leading-snug">
+            Great partnerships start here.
           </h1>
-          <p className="mt-2 text-base text-[#92adb2]">
-            Access your active client onboarding cases and reviews.
+          <p className="text-gray-300 text-sm mt-3">
+            One place for your clients, documents and every step in between.
           </p>
+
+          {/* Preview card */}
+          <div className="bg-white rounded-2xl p-5 shadow-md mt-8">
+            <p className="text-slate-800 font-semibold text-sm mb-4">
+              A smoother start
+            </p>
+
+            <div className="space-y-3">
+              {/* Row 1 */}
+              <div className="flex items-center justify-between">
+                <span className="text-slate-700 text-sm">Create your case</span>
+                <span className="bg-emerald-100 text-emerald-700 text-xs px-2.5 py-0.5 rounded-full font-medium">
+                  Approved
+                </span>
+              </div>
+              {/* Row 2 */}
+              <div className="flex items-center justify-between">
+                <span className="text-slate-700 text-sm">Collect documents</span>
+                <span className="bg-emerald-100 text-emerald-700 text-xs px-2.5 py-0.5 rounded-full font-medium">
+                  Approved
+                </span>
+              </div>
+              {/* Row 3 */}
+              <div className="flex items-center justify-between">
+                <span className="text-slate-700 text-sm">Review &amp; approve</span>
+                <span className="bg-blue-100 text-blue-700 text-xs px-2.5 py-0.5 rounded-full font-medium">
+                  In review
+                </span>
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div className="mt-5 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+              <div className="bg-teal-600 h-1.5 rounded-full w-[65%]" />
+            </div>
+          </div>
         </div>
 
-        {/* The White Login Card */}
-        <div className="bg-white text-slate-900 rounded-[22px] p-7 sm:p-9 shadow-2xl shadow-black/40 transition-all duration-300">
-          <form onSubmit={handleLogin} className="space-y-5">
-            {errorMessage && (
-              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-medium">
-                {errorMessage}
-              </div>
-            )}
+        {/* Footer */}
+        <p className="text-[10px] text-gray-400 uppercase tracking-widest">
+          CLIENT ONBOARDING &amp; DOCUMENT WORKFLOW
+        </p>
+      </div>
 
-            <div>
+      {/* ── Right Panel ── */}
+      <div className="w-full lg:w-1/2 bg-white flex items-center justify-center">
+        <div className="w-full max-w-md px-10 py-12 mx-auto">
+          <h2 className="text-2xl font-bold text-slate-900">
+            Sign in as {selectedRole.label}
+          </h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Choose your role, then enter your account details.
+          </p>
+
+          {/* Role tabs */}
+          <div className="mt-6 grid grid-cols-2 gap-2">
+            {ROLES.map((role, i) => (
+              <button
+                key={role.roleKey}
+                type="button"
+                onClick={() => handleRoleSelect(i)}
+                className={
+                  i === selectedRoleIndex
+                    ? "bg-[#09191C] text-white rounded-lg py-2.5 px-3 text-sm font-semibold text-left"
+                    : "bg-white text-gray-700 border border-gray-200 rounded-lg py-2.5 px-3 text-sm text-left"
+                }
+              >
+                {role.label}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            {/* Email */}
+            <div className="mt-5">
               <label
                 htmlFor="email"
-                className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5"
+                className="block text-xs font-medium text-slate-600 mb-1"
               >
-                Work Email
+                Email address
               </label>
               <input
                 id="email"
-                type="email"
+                type="text"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b7c74] focus:border-transparent transition-all"
+                placeholder={selectedRole.placeholder}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setLoginError(false);
+                }}
+                onBlur={() => setEmailTouched(true)}
+                className={`w-full px-3.5 py-2.5 rounded-lg border text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent transition-all ${
+                  emailInvalid
+                    ? "border-red-400 bg-red-50"
+                    : "border-slate-200 bg-slate-50"
+                }`}
               />
+              {emailInvalid && (
+                <p className="text-red-500 text-xs mt-1">
+                  Enter a valid email address.
+                </p>
+              )}
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
+            {/* Password */}
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-1">
                 <label
                   htmlFor="password"
-                  className="block text-xs font-semibold uppercase tracking-wider text-slate-600"
+                  className="text-xs font-medium text-slate-600"
                 >
                   Password
                 </label>
-                <span className="text-xs text-[#0b7c74] hover:underline cursor-pointer">
+                <Link
+                  href="/forgot-password"
+                  className="text-teal-600 text-xs hover:underline"
+                >
                   Forgot password?
-                </span>
+                </Link>
               </div>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0b7c74] focus:border-transparent transition-all"
-              />
-            </div>
-
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-600">
+              <div className="relative">
                 <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded border-slate-300 text-[#0b7c74] focus:ring-[#0b7c74] h-4 w-4"
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  placeholder="••••••••"
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setLoginError(false);
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent transition-all pr-10"
                 />
-                Remember this device
-              </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-700"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    /* Eye-off */
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9-4-9-7a9.77 9.77 0 012.197-5.19M9.88 9.88A3 3 0 0112 9a3 3 0 013 3m0 0a3 3 0 01-.879 2.121M3 3l18 18"
+                      />
+                    </svg>
+                  ) : (
+                    /* Eye */
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                      />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
 
+            {/* API error banner */}
+            {loginError && (
+              <div className="bg-[#FDF2F2] border border-red-200 rounded-lg p-3 mt-4">
+                <p className="text-red-700 text-sm font-semibold">
+                  Unable to sign in
+                </p>
+                <p className="text-red-600 text-xs mt-0.5">
+                  Check your email and password, then try again.
+                </p>
+              </div>
+            )}
+
+            {/* Submit */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full mt-2 py-3 px-4 rounded-xl bg-[#0b7c74] hover:bg-[#096963] active:bg-[#085b56] text-white font-semibold text-sm tracking-wide shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-70"
+              className="mt-6 w-full bg-[#0D7A78] text-white py-3 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-70 hover:bg-[#0b6c6a] transition-colors"
             >
               {isLoading ? (
                 <>
@@ -163,74 +331,28 @@ export default function LoginPage() {
                       r="10"
                       stroke="currentColor"
                       strokeWidth="4"
-                    ></circle>
+                    />
                     <path
                       className="opacity-75"
                       fill="currentColor"
                       d="M4 12a8 8 0 018-8v8H4z"
-                    ></path>
+                    />
                   </svg>
-                  <span>Authenticating...</span>
+                  Signing in...
                 </>
               ) : (
-                <span>Sign In to Dashboard →</span>
+                `Sign in as ${selectedRole.label}`
               )}
             </button>
           </form>
 
-          {/* Quick Demo Switcher with 4 Official Roles */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <span className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5 text-center">
-              Quick Role Switcher (4 System Roles)
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickFill("admin@onboardflow.com")}
-                className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-100 text-left transition-colors"
-              >
-                <div className="text-xs font-semibold text-slate-800">Sarah Jenkins</div>
-                <div className="text-[10px] text-teal-700 font-medium">Administrator</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill("manager@onboardflow.com")}
-                className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-100 text-left transition-colors"
-              >
-                <div className="text-xs font-semibold text-slate-800">Kasun J.</div>
-                <div className="text-[10px] text-blue-700 font-medium">Onboarding Manager</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill("reviewer@onboardflow.com")}
-                className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-100 text-left transition-colors"
-              >
-                <div className="text-xs font-semibold text-slate-800">Amara Silva</div>
-                <div className="text-[10px] text-purple-700 font-medium">Reviewer</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill("client@example.com")}
-                className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-100 text-left transition-colors"
-              >
-                <div className="text-xs font-semibold text-slate-800">Nimali Perera</div>
-                <div className="text-[10px] text-emerald-700 font-medium">Client</div>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-8 text-center sm:text-left">
-          <p className="text-xs font-semibold tracking-wider text-[#688a91] uppercase">
-            CLIENT ONBOARDING & DOCUMENT WORKFLOW
+          {/* Helper text */}
+          <p className="text-xs text-slate-400 mt-4 text-center">
+            Your administrator provides your account. Need access? Contact your
+            organisation.
           </p>
         </div>
-      </main>
-
-      {/* Bottom Footer */}
-      <footer className="w-full max-w-5xl mx-auto pt-6 border-t border-[#163840] flex flex-col sm:flex-row items-center justify-between text-xs text-[#6e8e95] gap-3">
-        <span>Team Decipher Group 28 · OnboardFlow RBAC Portal</span>
-      </footer>
+      </div>
     </div>
   );
 }

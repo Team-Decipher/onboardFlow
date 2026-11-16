@@ -107,6 +107,58 @@ public static class DbSeeder
         }
 
         await context.SaveChangesAsync();
+
+        // 3. Seed Figma persona accounts (check by email before inserting)
+        var figmaPersonas = new List<User>
+        {
+            new()
+            {
+                Email = "admin@example.com",
+                FullName = "System Administrator",
+                Role = AppRoles.Administrator,
+                PasswordHash = defaultPasswordHash,
+                IsActive = true,
+                CreatedAtUtc = DateTime.UtcNow
+            },
+            new()
+            {
+                Email = "kasun@example.com",
+                FullName = "Kasun Jayawardena",
+                Role = AppRoles.OnboardingManager,
+                PasswordHash = defaultPasswordHash,
+                IsActive = true,
+                CreatedAtUtc = DateTime.UtcNow
+            },
+            new()
+            {
+                Email = "amara@example.com",
+                FullName = "Amara Silva",
+                Role = AppRoles.Reviewer,
+                PasswordHash = defaultPasswordHash,
+                IsActive = true,
+                CreatedAtUtc = DateTime.UtcNow
+            },
+            new()
+            {
+                Email = "nimali@example.com",
+                FullName = "Nimali Perera",
+                Role = AppRoles.Client,
+                ClientOrganisationId = ceylonOrg.Id,
+                PasswordHash = defaultPasswordHash,
+                IsActive = true,
+                CreatedAtUtc = DateTime.UtcNow
+            }
+        };
+
+        foreach (var persona in figmaPersonas)
+        {
+            if (!await context.Users.AnyAsync(u => u.Email == persona.Email))
+            {
+                context.Users.Add(persona);
+            }
+        }
+
+        await context.SaveChangesAsync();
     }
 }
 
