@@ -1,153 +1,104 @@
-using System;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using OnboardFlow.Api.Common.Authorization;
-using OnboardFlow.Api.Data;
 using OnboardFlow.Api.Models;
-using OnboardFlow.Api.Modules.UsersAndAccess.Domain;
 using OnboardFlow.Api.Modules.UsersAndAccess.Services;
 
 namespace OnboardFlow.Api.Controllers;
 
+/// <summary>
+/// Thin HTTP adapter — delegates all business logic to <see cref="IAuthService"/>.
+/// No data-access, no password hashing, no JWT construction here (loose coupling).
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
-    private readonly AppDbContext _dbContext;
-    private readonly ITokenService _tokenService;
+    private readonly IAuthService _authService;
 
-    public AuthController(AppDbContext dbContext, ITokenService tokenService)
+    public AuthController(IAuthService authService)
     {
-        _dbContext = dbContext;
-        _tokenService = tokenService;
+        _authService = authService;
     }
+
+    // ─── POST /api/auth/login ──────────────────────────────────────────────────
 
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
-        {
             return BadRequest(new { message = "Email and password are required." });
-        }
 
-        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
-        var user = await _dbContext.Users
-            .Include(u => u.ClientOrganisation)
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail);
+        var result = await _authService.LoginAsync(request);
 
-        if (user == null)
-        {
-            return BadRequest(new { message = "Invalid email or password." });
-        }
-
-        // Verify password
-        if (!DbSeeder.VerifyPassword(request.Password, user.PasswordHash))
-        {
-            return BadRequest(new { message = "Invalid email or password." });
-        }
-
-        // 🔒 Reject deactivated users at login
-        if (!user.IsActive)
-        {
-            return StatusCode(StatusCodes.Status403Forbidden, new
-            {
-                message = "Your account has been deactivated. Please contact your administrator."
-            });
-        }
-
-        var userDto = new UserDto
-        {
-            Id = user.Id.ToString(),
-            Email = user.Email,
-            FullName = user.FullName,
-            Role = user.Role,
-            Company = user.ClientOrganisation?.Name ?? "OnboardFlow Internal",
-            ClientOrganisationId = user.ClientOrganisationId,
-            IsActive = user.IsActive
-        };
-
-        // Generates JWT containing role, userId, clientOrganisationId, email, and name
-        var token = _tokenService.GenerateToken(userDto);
-
-        // Record audit entry
-        _dbContext.AuditLogs.Add(new AuditEntry
-        {
-            Action = "USER_LOGIN",
-            ActorId = user.Id.ToString(),
-            ActorEmail = user.Email,
-            ActorRole = user.Role,
-            TargetEntity = "User",
-            TargetId = user.Id.ToString(),
-            Details = $"User '{user.Email}' logged in successfully.",
-            TimestampUtc = DateTime.UtcNow
-        });
-        await _dbContext.SaveChangesAsync();
+        if (!result.Succeeded)
+            return Unauthorized(new { message = result.ErrorMessage });
 
         return Ok(new LoginResponse
         {
-            Token = token,
-            Message = "Authentication successful",
-            User = userDto
+            Token     = result.Token!,
+            ExpiresAt = result.ExpiresAt!,
+            Message   = "Authentication successful",
+            User      = result.User!
         });
     }
 
-    // 🔒 Any active authenticated user can access /me
+    // ─── POST /api/auth/logout ─────────────────────────────────────────────────
+
+    [Authorize]
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
+    {
+        var userId = User.FindFirstValue("userId") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var email  = User.FindFirstValue(ClaimTypes.Email)
+                  ?? User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email);
+        var role   = User.FindFirstValue(ClaimTypes.Role) ?? User.FindFirstValue("role");
+
+        await _authService.LogoutAsync(userId, email, role);
+        return Ok(new { message = "Signed out successfully." });
+    }
+
+    // ─── GET /api/auth/me ─────────────────────────────────────────────────────
+
     [Authorize]
     [HttpGet("me")]
     public async Task<ActionResult<object>> GetCurrentUser()
     {
-        var userIdString = User.FindFirstValue("userId") 
+        var userIdString = User.FindFirstValue("userId")
                         ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-        if (!Guid.TryParse(userIdString, out var userId))
-        {
+        if (string.IsNullOrEmpty(userIdString))
             return Unauthorized(new { message = "Invalid user identity." });
-        }
 
-        var user = await _dbContext.Users
-            .Include(u => u.ClientOrganisation)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == userId);
+        var user = await _authService.GetCurrentUserAsync(userIdString);
 
-        if (user == null || !user.IsActive)
-        {
+        if (user == null)
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "User not found or deactivated." });
-        }
 
         return Ok(new
         {
-            id = user.Id.ToString(),
-            email = user.Email,
-            fullName = user.FullName,
-            role = user.Role,
-            company = user.ClientOrganisation?.Name ?? "OnboardFlow Internal",
+            id                   = user.Id,
+            email                = user.Email,
+            fullName             = user.FullName,
+            role                 = user.Role,
+            initials             = user.Initials,
+            company              = user.Company,
             clientOrganisationId = user.ClientOrganisationId,
-            isActive = user.IsActive,
-            message = "Access granted to authenticated user"
+            clientOrganisationName = user.ClientOrganisationName,
+            isActive             = user.IsActive
         });
     }
 
-    // 🔒 ONLY Administrator role
+    // ─── Demo role-restricted endpoints (kept as-is) ──────────────────────────
+
     [Authorize(Roles = AppRoles.Administrator)]
     [HttpGet("admin-only")]
-    public IActionResult AdminOnlyEndpoint()
-    {
-        return Ok(new
-        {
-            message = "Welcome Administrator! You have access to this restricted area."
-        });
-    }
+    public IActionResult AdminOnlyEndpoint() =>
+        Ok(new { message = "Welcome Administrator! You have access to this restricted area." });
 
-    // 🔒 ONLY Reviewers and Onboarding Managers
     [Authorize(Roles = $"{AppRoles.Reviewer},{AppRoles.OnboardingManager}")]
     [HttpGet("reviews-queue")]
-    public IActionResult ReviewQueueEndpoint()
-    {
-        return Ok(new
-        {
-            message = "Access granted to Reviewers and Onboarding Managers."
-        });
-    }
+    public IActionResult ReviewQueueEndpoint() =>
+        Ok(new { message = "Access granted to Reviewers and Onboarding Managers." });
 }
