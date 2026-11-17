@@ -21,7 +21,7 @@ export function WorkspaceLayout({ children }: { children: React.ReactNode }) {
       case "Administrator":
         return [
           { label: "Overview", href: "/dashboard" },
-          { label: "Client organisations", href: "/admin/organisations" },
+          { label: "Client organisations", href: "/client-organisations" },
           { label: "Client types", href: "/admin/client-types" },
           { label: "Checklist templates", href: "/admin/checklists" },
           { label: "Approval workflows", href: "/admin/workflows" },
@@ -32,7 +32,7 @@ export function WorkspaceLayout({ children }: { children: React.ReactNode }) {
         ];
       case "OnboardingManager":
         return [
-          { label: "Overview", href: "/dashboard" },
+          { label: "Overview", href: "/overview" },
           { label: "Onboarding cases", href: "/manager/cases" },
           { label: "Overdue items", href: "/manager/overdue" },
           { label: "Reports & insights", href: "/manager/reports" },
@@ -40,13 +40,13 @@ export function WorkspaceLayout({ children }: { children: React.ReactNode }) {
       case "Reviewer":
         return [
           { label: "Overview", href: "/dashboard" },
-          { label: "My review queue", href: "/reviewer/queue" },
+          { label: "My review queue", href: "/review-queue" },
           { label: "Notifications", href: "/reviewer/notifications" },
           { label: "My profile", href: "/reviewer/profile" },
         ];
       case "Client":
         return [
-          { label: "Your onboarding", href: "/dashboard" },
+          { label: "Your onboarding", href: "/your-onboarding" },
           { label: "Your documents", href: "/client/documents" },
           { label: "Notifications", href: "/client/notifications" },
           { label: "Profile & preferences", href: "/client/profile" },
@@ -78,7 +78,13 @@ export function WorkspaceLayout({ children }: { children: React.ReactNode }) {
           {/* Nav List */}
           <nav className="space-y-1">
             {navItems.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive =
+                pathname === item.href ||
+                (item.href !== "/dashboard" &&
+                  item.href !== "/overview" &&
+                  (pathname.startsWith(item.href) ||
+                    (item.href === "/admin/checklists" &&
+                      pathname.startsWith("/admin/checklist-templates"))));
               return (
                 <Link
                   key={item.href}

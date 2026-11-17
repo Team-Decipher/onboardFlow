@@ -483,15 +483,15 @@ function ChecklistBuilderContent() {
               <span>/</span>
               <span className="text-slate-700 font-semibold">Checklist Builder</span>
             </div>
-            <div className="text-slate-400 font-medium">
-              Sample data · 19 Oct 2026 / <span className="text-slate-600 font-semibold">Alex Morgan</span>
+            <div className="text-slate-500 font-medium text-xs">
+              Authenticated as <span className="text-slate-700 font-semibold">{user?.fullName || "Administrator"}</span> ({user?.role || "Administrator"})
             </div>
           </div>
 
           {/* Page Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
             <div>
-              <div className="text-[11px] font-bold tracking-wider text-blue-700 uppercase mb-1">
+              <div className="text-[11px] font-bold tracking-wider text-cyan-800 uppercase mb-1">
                 ADMINISTRATOR WORKSPACE
               </div>
               <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -506,7 +506,13 @@ function ChecklistBuilderContent() {
             <div className="flex items-center gap-2.5">
               <button
                 type="button"
-                onClick={() => router.push("/admin/client-types")}
+                onClick={() => {
+                  if (typeof window !== "undefined" && window.history.length > 1) {
+                    router.back();
+                  } else {
+                    router.push("/admin/checklists");
+                  }
+                }}
                 className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg border border-slate-300 shadow-2xs transition"
               >
                 Cancel
@@ -515,7 +521,7 @@ function ChecklistBuilderContent() {
                 type="button"
                 disabled={saving}
                 onClick={handleSaveChecklist}
-                className="px-5 py-2 bg-[#1d58d8] hover:bg-[#1a4dc0] active:bg-[#163fa1] text-white text-xs font-semibold rounded-lg shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
+                className="px-5 py-2 bg-[#0d272d] hover:bg-[#143d46] active:bg-[#091b1f] text-white text-xs font-semibold rounded-lg shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
               >
                 {saving && (
                   <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
@@ -555,7 +561,7 @@ function ChecklistBuilderContent() {
                 type="text"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition shadow-2xs"
+                className="w-full px-3.5 py-2.5 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:border-transparent transition shadow-2xs"
                 placeholder="e.g. Enterprise onboarding v3"
               />
             </div>
@@ -569,7 +575,7 @@ function ChecklistBuilderContent() {
                   id="associatedClientType"
                   value={selectedClientTypeId}
                   onChange={(e) => setSelectedClientTypeId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent appearance-none pr-8 transition shadow-2xs cursor-pointer"
+                  className="w-full px-3.5 py-2.5 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:border-transparent appearance-none pr-8 transition shadow-2xs cursor-pointer"
                 >
                   {clientTypes.map((ct) => (
                     <option key={ct.id} value={ct.id}>
@@ -680,7 +686,7 @@ function ChecklistBuilderContent() {
                         value={item.documentName}
                         onChange={(e) => handleFieldChange(item.id, "documentName", e.target.value)}
                         placeholder="Document title"
-                        className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition"
+                        className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:border-transparent transition"
                       />
                     </div>
 
@@ -693,7 +699,7 @@ function ChecklistBuilderContent() {
                         <select
                           value={item.isRequired ? "Required" : "Optional"}
                           onChange={(e) => handleFieldChange(item.id, "isRequired", e.target.value === "Required")}
-                          className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent appearance-none pr-7 cursor-pointer"
+                          className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:border-transparent appearance-none pr-7 cursor-pointer"
                         >
                           <option value="Required">Required</option>
                           <option value="Optional">Optional</option>
@@ -716,7 +722,7 @@ function ChecklistBuilderContent() {
                           value={item.assignedReviewerId || ""}
                           disabled={!canAssignReviewer}
                           onChange={(e) => handleReviewerChange(item.id, e.target.value || null)}
-                          className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent appearance-none pr-7 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
+                          className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:border-transparent appearance-none pr-7 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
                         >
                           <option value="">Unassigned (None)</option>
                           {reviewers.map((rev) => (
@@ -752,7 +758,7 @@ function ChecklistBuilderContent() {
                           )
                         }
                         placeholder="1–365"
-                        className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition disabled:bg-slate-100 disabled:cursor-not-allowed"
+                        className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:border-transparent transition disabled:bg-slate-100 disabled:cursor-not-allowed"
                       />
                     </div>
 
@@ -777,7 +783,7 @@ function ChecklistBuilderContent() {
                             e.target.value || null
                           )
                         }
-                        className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition disabled:bg-slate-100 disabled:cursor-not-allowed"
+                        className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:border-transparent transition disabled:bg-slate-100 disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -830,12 +836,12 @@ function ChecklistBuilderContent() {
             </div>
 
             {/* Right Callout Box */}
-            <div className="bg-[#eff6ff] border border-blue-200/80 rounded-2xl p-5 flex flex-col justify-center">
-              <div className="text-xs font-bold text-blue-900">
+            <div className="bg-[#e6f4f1] border border-[#c2e5dc] rounded-2xl p-5 flex flex-col justify-center">
+              <div className="text-xs font-bold text-[#0c6258]">
                 Configuration rules
               </div>
-              <p className="text-xs text-blue-800/80 mt-1 leading-relaxed">
-                Attachment/binding of the approval sequence, template date behavior, and approval-step due-date editing permissions: Pending confirmation
+              <p className="text-xs text-[#1e5852] mt-1 leading-relaxed">
+                Default reviewers and due time limits set here will automatically populate when creating a new client onboarding case for this client tier.
               </p>
             </div>
           </div>
