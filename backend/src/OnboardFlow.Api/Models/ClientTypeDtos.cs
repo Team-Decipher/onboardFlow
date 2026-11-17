@@ -47,7 +47,10 @@ public class ChecklistTemplateDto
     public string Version { get; set; } = "v1";
     public string DisplayName => $"{Name} · {Version}";
     public string? Description { get; set; }
+    public Guid? AssociatedClientTypeId { get; set; }
+    public string? AssociatedClientTypeName { get; set; }
     public int RequiredCount { get; set; }
     public int OptionalCount { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
 }
 

@@ -103,7 +103,7 @@ function ChecklistBuilderContent() {
     },
   ]);
 
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -148,9 +148,7 @@ function ChecklistBuilderContent() {
           const ctData: ClientTypeOption[] = await clientTypesRes.json();
           if (ctData && ctData.length > 0) {
             setClientTypes(ctData);
-            if (!selectedClientTypeId) {
-              setSelectedClientTypeId(ctData[0].id);
-            }
+            setSelectedClientTypeId((prev) => prev || ctData[0].id);
           }
         }
       } catch (err) {
@@ -260,7 +258,7 @@ function ChecklistBuilderContent() {
   };
 
   // Update item field in-memory
-  const handleFieldChange = (id: string, field: keyof ChecklistItem, value: any) => {
+  const handleFieldChange = (id: string, field: keyof ChecklistItem, value: ChecklistItem[keyof ChecklistItem]) => {
     setItems((prev) =>
       prev.map((item) => {
         if (item.id === id) {
@@ -313,7 +311,7 @@ function ChecklistBuilderContent() {
         }))
       );
       setFeedback({ type: "success", message: "Checklist saved successfully!" });
-    } catch (err: any) {
+    } catch {
       setFeedback({ type: "success", message: "Checklist changes saved to active workspace." });
     } finally {
       setSaving(false);
