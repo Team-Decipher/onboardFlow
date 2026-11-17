@@ -13,5 +13,7 @@ public interface IChecklistItemService
     Task<bool> RemoveItemAsync(Guid templateId, Guid itemId);
     Task<IReadOnlyList<ChecklistItemDto>> BulkSaveItemsAsync(Guid templateId, BulkUpdateChecklistItemsDto dto, string modifiedBy);
     Task<IReadOnlyList<ReviewerOptionDto>> GetReviewersAsync();
+    Task<ChecklistItemDto> AssignReviewerAsync(Guid templateId, Guid itemId, Guid? reviewerId, string modifiedBy);
+    Task<ChecklistItemDto> SetItemDueLimitAsync(Guid templateId, Guid itemId, SetItemDueLimitDto dto, string modifiedBy, TimeProvider? timeProvider = null);
 }
 

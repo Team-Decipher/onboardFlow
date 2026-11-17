@@ -203,6 +203,9 @@ namespace OnboardFlow.Api.Migrations
                     b.Property<DateTime?>("DueDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("DueDays")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("IsRequired")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
