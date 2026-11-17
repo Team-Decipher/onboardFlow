@@ -70,6 +70,16 @@ public static class DbSeeder
             },
             new()
             {
+                Id = Guid.Parse("44444444-4444-4444-4444-444444444444"),
+                Email = "rowan.ellis@onboardflow.com",
+                FullName = "Rowan Ellis",
+                Role = AppRoles.Reviewer,
+                PasswordHash = defaultPasswordHash,
+                IsActive = true,
+                CreatedAtUtc = DateTime.UtcNow
+            },
+            new()
+            {
                 Email = "reviewer@onboardflow.com",
                 FullName = "Amara Silva",
                 Role = AppRoles.Reviewer,
@@ -159,6 +169,68 @@ public static class DbSeeder
         }
 
         await context.SaveChangesAsync();
+
+        // 4. Seed initial Checklist Items matching the Figma design if none exist
+        var enterpriseTemplateId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var rowanUser = await context.Users.FirstOrDefaultAsync(u => u.Email == "rowan.ellis@onboardflow.com");
+
+        if (!await context.ChecklistItems.AnyAsync(i => i.ChecklistTemplateId == enterpriseTemplateId))
+        {
+            var initialItems = new List<OnboardFlow.Api.Modules.Checklists.Domain.ChecklistItem>
+            {
+                new()
+                {
+                    Id = Guid.Parse("55555555-5555-5555-5555-555555555551"),
+                    ChecklistTemplateId = enterpriseTemplateId,
+                    DocumentName = "Company registration",
+                    IsRequired = true,
+                    AssignedReviewerId = rowanUser?.Id,
+                    DueDate = new DateTime(2026, 10, 14, 0, 0, 0, DateTimeKind.Utc),
+                    OrderIndex = 1,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    CreatedBy = "System administrator"
+                },
+                new()
+                {
+                    Id = Guid.Parse("55555555-5555-5555-5555-555555555552"),
+                    ChecklistTemplateId = enterpriseTemplateId,
+                    DocumentName = "Ownership declaration",
+                    IsRequired = true,
+                    AssignedReviewerId = rowanUser?.Id,
+                    DueDate = new DateTime(2026, 10, 16, 0, 0, 0, DateTimeKind.Utc),
+                    OrderIndex = 2,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    CreatedBy = "System administrator"
+                },
+                new()
+                {
+                    Id = Guid.Parse("55555555-5555-5555-5555-555555555553"),
+                    ChecklistTemplateId = enterpriseTemplateId,
+                    DocumentName = "Tax certificate",
+                    IsRequired = true,
+                    AssignedReviewerId = rowanUser?.Id,
+                    DueDate = new DateTime(2026, 10, 20, 0, 0, 0, DateTimeKind.Utc),
+                    OrderIndex = 3,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    CreatedBy = "System administrator"
+                },
+                new()
+                {
+                    Id = Guid.Parse("55555555-5555-5555-5555-555555555554"),
+                    ChecklistTemplateId = enterpriseTemplateId,
+                    DocumentName = "Company profile",
+                    IsRequired = false,
+                    AssignedReviewerId = rowanUser?.Id,
+                    DueDate = new DateTime(2026, 10, 22, 0, 0, 0, DateTimeKind.Utc),
+                    OrderIndex = 4,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    CreatedBy = "System administrator"
+                }
+            };
+
+            context.ChecklistItems.AddRange(initialItems);
+            await context.SaveChangesAsync();
+        }
     }
 }
 
