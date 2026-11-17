@@ -4,6 +4,7 @@ import React, { Suspense, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { WorkspaceLayout } from "@/features/auth/components/WorkspaceLayout";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 interface ChecklistItem {
   id: string;
@@ -44,6 +45,8 @@ interface ChecklistTemplateDetail {
 function ChecklistBuilderContent() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
+  const canAssignReviewer = !user || user.role === "Administrator" || user.role === "OnboardingManager";
   const templateId = (params?.id as string) || "11111111-1111-1111-1111-111111111111";
 
   const [templateName, setTemplateName] = useState("Enterprise onboarding v3");
@@ -272,6 +275,71 @@ function ChecklistBuilderContent() {
         return item;
       })
     );
+  };
+
+  // US-18: Assign Reviewer (Granular API Call + Optimistic UI)
+  const handleReviewerChange = async (itemId: string, newReviewerId: string | null) => {
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return;
+
+    const previousReviewerId = item.assignedReviewerId;
+    const previousReviewerName = item.assignedReviewerName;
+
+    const newRev = reviewers.find((r) => r.id === newReviewerId);
+    const newRevName = newRev?.fullName || null;
+
+    // Optimistically update local state
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === itemId
+          ? { ...i, assignedReviewerId: newReviewerId, assignedReviewerName: newRevName }
+          : i
+      )
+    );
+
+    // If item is already persisted to backend, call the granular endpoint
+    if (!itemId.startsWith("new-")) {
+      try {
+        const token = localStorage.getItem("onboardflow_token");
+        const res = await fetch(`${apiUrl}/api/checklist-templates/${templateId}/items/${itemId}/reviewer`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ reviewerId: newReviewerId }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null);
+          throw new Error(errData?.detail || errData?.message || "Failed to update reviewer.");
+        }
+
+        const msg = newRevName
+          ? `Assigned "${newRevName}" to ${item.documentName}.`
+          : `Cleared reviewer for ${item.documentName}.`;
+        setFeedback({ type: "success", message: msg });
+        setTimeout(() => setFeedback(null), 4000);
+      } catch (err: unknown) {
+        // Rollback on error
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === itemId
+              ? { ...i, assignedReviewerId: previousReviewerId, assignedReviewerName: previousReviewerName }
+              : i
+          )
+        );
+        const errorMsg = err instanceof Error ? err.message : "Failed to assign reviewer.";
+        setFeedback({ type: "error", message: errorMsg });
+        setTimeout(() => setFeedback(null), 5000);
+      }
+    } else {
+      const msg = newRevName
+        ? `Selected reviewer "${newRevName}".`
+        : `Unassigned reviewer.`;
+      setFeedback({ type: "success", message: msg });
+      setTimeout(() => setFeedback(null), 3000);
+    }
   };
 
   // Save Checklist Bulk Action
@@ -563,13 +631,14 @@ function ChecklistBuilderContent() {
                       <div className="relative">
                         <select
                           value={item.assignedReviewerId || ""}
-                          onChange={(e) => handleFieldChange(item.id, "assignedReviewerId", e.target.value || null)}
-                          className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent appearance-none pr-7 cursor-pointer"
+                          disabled={!canAssignReviewer}
+                          onChange={(e) => handleReviewerChange(item.id, e.target.value || null)}
+                          className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent appearance-none pr-7 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
                         >
-                          <option value="">Unassigned</option>
+                          <option value="">Unassigned (None)</option>
                           {reviewers.map((rev) => (
                             <option key={rev.id} value={rev.id}>
-                              {rev.fullName}
+                              {rev.fullName} ({rev.role})
                             </option>
                           ))}
                         </select>

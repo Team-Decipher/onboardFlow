@@ -8,6 +8,7 @@ using OnboardFlow.Api.Data;
 using OnboardFlow.Api.Modules.Checklists.Domain;
 using OnboardFlow.Api.Modules.Checklists.DTOs;
 using OnboardFlow.Api.Modules.Checklists.Repositories;
+using OnboardFlow.Api.Modules.UsersAndAccess.Domain;
 
 namespace OnboardFlow.Api.Modules.Checklists.Services;
 
@@ -236,6 +237,60 @@ public class ChecklistItemService : IChecklistItemService
                 Email = u.Email
             })
             .ToListAsync();
+    }
+
+    public async Task<ChecklistItemDto> AssignReviewerAsync(Guid templateId, Guid itemId, Guid? reviewerId, string modifiedBy)
+    {
+        var template = await _context.ChecklistTemplates.FindAsync(templateId);
+        if (template == null)
+        {
+            throw new KeyNotFoundException($"Checklist template with ID '{templateId}' was not found.");
+        }
+
+        var item = await _context.ChecklistItems
+            .Include(i => i.AssignedReviewer)
+            .FirstOrDefaultAsync(i => i.Id == itemId && i.ChecklistTemplateId == templateId);
+
+        if (item == null)
+        {
+            throw new KeyNotFoundException($"Checklist item with ID '{itemId}' not found on template '{templateId}'.");
+        }
+
+        User? newReviewer = null;
+        if (reviewerId.HasValue)
+        {
+            newReviewer = await _context.Users.FirstOrDefaultAsync(u => u.Id == reviewerId.Value);
+            if (newReviewer == null || !newReviewer.IsActive)
+            {
+                throw new ArgumentException("The specified reviewer user does not exist or is inactive.");
+            }
+
+            if (newReviewer.Role != AppRoles.Reviewer)
+            {
+                throw new ArgumentException($"User '{newReviewer.FullName}' cannot be assigned as a reviewer because they do not hold the '{AppRoles.Reviewer}' role.");
+            }
+        }
+
+        var oldReviewerName = item.AssignedReviewer?.FullName ?? "None";
+        var newReviewerName = newReviewer?.FullName ?? "None";
+
+        item.AssignedReviewerId = reviewerId;
+        item.AssignedReviewer = newReviewer;
+
+        // Audit entry
+        var audit = new AuditEntry
+        {
+            Id = Guid.NewGuid(),
+            Action = "ChecklistItemReviewerAssigned",
+            Details = $"Assigned reviewer '{newReviewerName}' to item '{item.DocumentName}' on template '{template.Name}' (previously: '{oldReviewerName}').",
+            TimestampUtc = DateTime.UtcNow,
+            User = string.IsNullOrWhiteSpace(modifiedBy) ? "System administrator" : modifiedBy
+        };
+        _context.AuditLogs.Add(audit);
+
+        await _context.SaveChangesAsync();
+
+        return MapToDto(item);
     }
 
     private async Task RecalculateTemplateCountsAsync(Guid templateId)

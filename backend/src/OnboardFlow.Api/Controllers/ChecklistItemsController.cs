@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using OnboardFlow.Api.Common.Authorization;
 using OnboardFlow.Api.Modules.Checklists.DTOs;
@@ -99,6 +100,47 @@ public class ChecklistItemsController : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("{templateId:guid}/items/{itemId:guid}/reviewer")]
+    [Authorize(Roles = $"{AppRoles.Administrator},{AppRoles.OnboardingManager}")]
+    public async Task<ActionResult<ChecklistItemDto>> AssignReviewer(
+        Guid templateId, 
+        Guid itemId, 
+        [FromBody] AssignReviewerDto dto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var user = User.FindFirstValue(ClaimTypes.Name) 
+                ?? User.FindFirstValue(ClaimTypes.Email) 
+                ?? "Administrator";
+
+            var updated = await _service.AssignReviewerAsync(templateId, itemId, dto.ReviewerId, user);
+            return Ok(updated);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Invalid Reviewer",
+                Detail = ex.Message,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Title = "Item or Template Not Found",
+                Detail = ex.Message,
+                Status = StatusCodes.Status404NotFound
+            });
         }
     }
 }

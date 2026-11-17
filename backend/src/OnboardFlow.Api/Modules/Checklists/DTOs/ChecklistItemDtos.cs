@@ -32,6 +32,11 @@ public class CreateChecklistItemDto
     public int? OrderIndex { get; set; }
 }
 
+public class AssignReviewerDto
+{
+    public Guid? ReviewerId { get; set; }
+}
+
 public class UpdateChecklistItemDto
 {
     public Guid? Id { get; set; }
