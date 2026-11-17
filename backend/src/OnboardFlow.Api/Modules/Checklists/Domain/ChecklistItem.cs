@@ -18,6 +18,7 @@ public class ChecklistItem
     public Guid? AssignedReviewerId { get; set; }
     public User? AssignedReviewer { get; set; }
 
+    public int? DueDays { get; set; }
     public DateTime? DueDate { get; set; }
 
     public int OrderIndex { get; set; } = 1;

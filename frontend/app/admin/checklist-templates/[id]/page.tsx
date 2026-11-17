@@ -13,7 +13,9 @@ interface ChecklistItem {
   isRequired: boolean;
   assignedReviewerId?: string | null;
   assignedReviewerName?: string | null;
+  dueDays?: number | null;
   dueDate?: string | null;
+  isOverdue?: boolean;
   orderIndex: number;
   isNew?: boolean;
 }
@@ -47,6 +49,7 @@ function ChecklistBuilderContent() {
   const router = useRouter();
   const { user } = useAuth();
   const canAssignReviewer = !user || user.role === "Administrator" || user.role === "OnboardingManager";
+  const canEditDue = !user || user.role === "Administrator";
   const templateId = (params?.id as string) || "11111111-1111-1111-1111-111111111111";
 
   const [templateName, setTemplateName] = useState("Enterprise onboarding v3");
@@ -71,7 +74,9 @@ function ChecklistBuilderContent() {
       isRequired: true,
       assignedReviewerId: "44444444-4444-4444-4444-444444444444",
       assignedReviewerName: "Rowan Ellis",
+      dueDays: 14,
       dueDate: "2026-10-14",
+      isOverdue: true,
       orderIndex: 1,
     },
     {
@@ -81,7 +86,9 @@ function ChecklistBuilderContent() {
       isRequired: true,
       assignedReviewerId: "44444444-4444-4444-4444-444444444444",
       assignedReviewerName: "Rowan Ellis",
+      dueDays: 14,
       dueDate: "2026-10-16",
+      isOverdue: true,
       orderIndex: 2,
     },
     {
@@ -91,7 +98,9 @@ function ChecklistBuilderContent() {
       isRequired: true,
       assignedReviewerId: "44444444-4444-4444-4444-444444444444",
       assignedReviewerName: "Rowan Ellis",
+      dueDays: 21,
       dueDate: "2026-10-20",
+      isOverdue: true,
       orderIndex: 3,
     },
     {
@@ -101,7 +110,9 @@ function ChecklistBuilderContent() {
       isRequired: false,
       assignedReviewerId: "44444444-4444-4444-4444-444444444444",
       assignedReviewerName: "Rowan Ellis",
+      dueDays: 30,
       dueDate: "2026-10-22",
+      isOverdue: true,
       orderIndex: 4,
     },
   ]);
@@ -131,11 +142,18 @@ function ChecklistBuilderContent() {
             setSelectedClientTypeId(tpl.associatedClientTypeId);
           }
           if (tpl.items && tpl.items.length > 0) {
+            const todayStr = new Date().toISOString().split("T")[0];
             setItems(
-              tpl.items.map((item) => ({
-                ...item,
-                dueDate: item.dueDate ? item.dueDate.split("T")[0] : "",
-              }))
+              tpl.items.map((item) => {
+                const formattedDueDate = item.dueDate ? item.dueDate.split("T")[0] : "";
+                const isOverdue = Boolean(item.isOverdue || (formattedDueDate && formattedDueDate < todayStr));
+                return {
+                  ...item,
+                  dueDays: item.dueDays ?? null,
+                  dueDate: formattedDueDate,
+                  isOverdue,
+                };
+              })
             );
           }
         }
@@ -342,6 +360,70 @@ function ChecklistBuilderContent() {
     }
   };
 
+  // US-19: Set Due Limit (Granular API Call + Optimistic UI)
+  const handleDueLimitChange = async (
+    itemId: string,
+    dueDays: number | null,
+    dueDate: string | null
+  ) => {
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return;
+
+    const previousDueDays = item.dueDays;
+    const previousDueDate = item.dueDate;
+    const previousIsOverdue = item.isOverdue;
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    const computedOverdue = Boolean(dueDate && dueDate < todayStr);
+
+    // Optimistically update local state
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === itemId
+          ? { ...i, dueDays, dueDate, isOverdue: computedOverdue }
+          : i
+      )
+    );
+
+    // If item is already persisted to backend, call the granular endpoint
+    if (!itemId.startsWith("new-")) {
+      try {
+        const token = localStorage.getItem("onboardflow_token");
+        const res = await fetch(`${apiUrl}/api/checklist-templates/${templateId}/items/${itemId}/due`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            dueDays: dueDays || null,
+            dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+          }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null);
+          throw new Error(errData?.detail || errData?.message || "Failed to update deadline.");
+        }
+
+        setFeedback({ type: "success", message: `Updated deadline for "${item.documentName}".` });
+        setTimeout(() => setFeedback(null), 4000);
+      } catch (err: unknown) {
+        // Rollback on error
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === itemId
+              ? { ...i, dueDays: previousDueDays, dueDate: previousDueDate, isOverdue: previousIsOverdue }
+              : i
+          )
+        );
+        const errorMsg = err instanceof Error ? err.message : "Failed to update deadline.";
+        setFeedback({ type: "error", message: errorMsg });
+        setTimeout(() => setFeedback(null), 5000);
+      }
+    }
+  };
+
   // Save Checklist Bulk Action
   const handleSaveChecklist = async () => {
     setSaving(true);
@@ -355,6 +437,7 @@ function ChecklistBuilderContent() {
         documentName: item.documentName.trim(),
         isRequired: item.isRequired,
         assignedReviewerId: item.assignedReviewerId || null,
+        dueDays: item.dueDays || null,
         dueDate: item.dueDate ? new Date(item.dueDate).toISOString() : null,
         orderIndex: idx + 1,
       })),
@@ -585,8 +668,8 @@ function ChecklistBuilderContent() {
                     </div>
                   </div>
 
-                  {/* 4 Inline Fields */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 flex-1 min-w-0">
+                  {/* 4 Inline Fields (expanded to 5 cols for due days + due date) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 flex-1 min-w-0">
                     {/* Field 1: Document Name */}
                     <div>
                       <label className="block text-[11px] font-bold text-slate-700 mb-1">
@@ -650,16 +733,51 @@ function ChecklistBuilderContent() {
                       </div>
                     </div>
 
-                    {/* Field 4: Due Date */}
+                    {/* Field 4a: Due Days */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Due days
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={365}
+                        value={item.dueDays ?? ""}
+                        disabled={!canEditDue}
+                        onChange={(e) =>
+                          handleDueLimitChange(
+                            item.id,
+                            e.target.value ? Number(e.target.value) : null,
+                            item.dueDate || null
+                          )
+                        }
+                        placeholder="1–365"
+                        className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition disabled:bg-slate-100 disabled:cursor-not-allowed"
+                      />
+                    </div>
+
+                    {/* Field 4b: Due Date */}
                     <div>
                       <label className="block text-[11px] font-bold text-slate-700 mb-1">
                         Due date
+                        {item.isOverdue && (
+                          <span className="ml-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold bg-red-100 text-red-700 rounded-full leading-none">
+                            ⚠ Overdue
+                          </span>
+                        )}
                       </label>
                       <input
                         type="date"
                         value={item.dueDate || ""}
-                        onChange={(e) => handleFieldChange(item.id, "dueDate", e.target.value)}
-                        className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition"
+                        disabled={!canEditDue}
+                        onChange={(e) =>
+                          handleDueLimitChange(
+                            item.id,
+                            item.dueDays ?? null,
+                            e.target.value || null
+                          )
+                        }
+                        className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition disabled:bg-slate-100 disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>

@@ -143,5 +143,46 @@ public class ChecklistItemsController : ControllerBase
             });
         }
     }
+
+    [HttpPut("{templateId:guid}/items/{itemId:guid}/due")]
+    [Authorize(Roles = AppRoles.Administrator)]
+    public async Task<ActionResult<ChecklistItemDto>> SetItemDue(
+        Guid templateId, 
+        Guid itemId, 
+        [FromBody] SetItemDueLimitDto dto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var user = User.FindFirstValue(ClaimTypes.Name) 
+                ?? User.FindFirstValue(ClaimTypes.Email) 
+                ?? "Administrator";
+
+            var updated = await _service.SetItemDueLimitAsync(templateId, itemId, dto, user);
+            return Ok(updated);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Invalid Due Limit",
+                Detail = ex.Message,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Title = "Item or Template Not Found",
+                Detail = ex.Message,
+                Status = StatusCodes.Status404NotFound
+            });
+        }
+    }
 }
 

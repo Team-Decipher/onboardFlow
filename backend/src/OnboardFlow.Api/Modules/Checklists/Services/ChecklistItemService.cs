@@ -80,6 +80,7 @@ public class ChecklistItemService : IChecklistItemService
             DocumentName = dto.DocumentName.Trim(),
             IsRequired = dto.IsRequired,
             AssignedReviewerId = dto.AssignedReviewerId,
+            DueDays = dto.DueDays,
             DueDate = dto.DueDate,
             OrderIndex = nextOrderIndex,
             CreatedAtUtc = DateTime.UtcNow,
@@ -182,6 +183,7 @@ public class ChecklistItemService : IChecklistItemService
                 existingItem.DocumentName = itemDto.DocumentName.Trim();
                 existingItem.IsRequired = itemDto.IsRequired;
                 existingItem.AssignedReviewerId = itemDto.AssignedReviewerId;
+                existingItem.DueDays = itemDto.DueDays;
                 existingItem.DueDate = itemDto.DueDate;
                 existingItem.OrderIndex = orderIndex;
                 updatedItemIds.Add(existingItem.Id);
@@ -195,6 +197,7 @@ public class ChecklistItemService : IChecklistItemService
                     DocumentName = itemDto.DocumentName.Trim(),
                     IsRequired = itemDto.IsRequired,
                     AssignedReviewerId = itemDto.AssignedReviewerId,
+                    DueDays = itemDto.DueDays,
                     DueDate = itemDto.DueDate,
                     OrderIndex = orderIndex,
                     CreatedAtUtc = DateTime.UtcNow,
@@ -293,6 +296,62 @@ public class ChecklistItemService : IChecklistItemService
         return MapToDto(item);
     }
 
+    public async Task<ChecklistItemDto> SetItemDueLimitAsync(
+        Guid templateId, 
+        Guid itemId, 
+        SetItemDueLimitDto dto, 
+        string modifiedBy, 
+        TimeProvider? timeProvider = null)
+    {
+        var template = await _context.ChecklistTemplates.FindAsync(templateId);
+        if (template == null)
+        {
+            throw new KeyNotFoundException($"Checklist template with ID '{templateId}' was not found.");
+        }
+
+        var item = await _context.ChecklistItems
+            .Include(i => i.AssignedReviewer)
+            .FirstOrDefaultAsync(i => i.Id == itemId && i.ChecklistTemplateId == templateId);
+
+        if (item == null)
+        {
+            throw new KeyNotFoundException($"Checklist item with ID '{itemId}' not found on template '{templateId}'.");
+        }
+
+        var clock = timeProvider ?? TimeProvider.System;
+        var todayUtc = clock.GetUtcNow().UtcDateTime.Date;
+
+        if (dto.DueDays.HasValue && (dto.DueDays.Value < 1 || dto.DueDays.Value > 365))
+        {
+            throw new ArgumentException("Due days must be between 1 and 365 days.");
+        }
+
+        if (dto.DueDate.HasValue && dto.DueDate.Value.Date < todayUtc)
+        {
+            throw new ArgumentException("Due date cannot be in the past.");
+        }
+
+        item.DueDays = dto.DueDays;
+        item.DueDate = dto.DueDate;
+
+        var dueDaysDesc = dto.DueDays.HasValue ? $"{dto.DueDays.Value} days" : "None";
+        var dueDateDesc = dto.DueDate.HasValue ? dto.DueDate.Value.ToString("yyyy-MM-dd") : "None";
+
+        var audit = new AuditEntry
+        {
+            Id = Guid.NewGuid(),
+            Action = "ChecklistItemDueUpdated",
+            Details = $"Updated due limits for item '{item.DocumentName}' on template '{template.Name}': DueDays={dueDaysDesc}, DueDate={dueDateDesc}.",
+            TimestampUtc = DateTime.UtcNow,
+            User = string.IsNullOrWhiteSpace(modifiedBy) ? "System administrator" : modifiedBy
+        };
+        _context.AuditLogs.Add(audit);
+
+        await _context.SaveChangesAsync();
+
+        return MapToDto(item, clock);
+    }
+
     private async Task RecalculateTemplateCountsAsync(Guid templateId)
     {
         var template = await _context.ChecklistTemplates.FindAsync(templateId);
@@ -310,8 +369,12 @@ public class ChecklistItemService : IChecklistItemService
         }
     }
 
-    private static ChecklistItemDto MapToDto(ChecklistItem item)
+    private static ChecklistItemDto MapToDto(ChecklistItem item, TimeProvider? timeProvider = null)
     {
+        var clock = timeProvider ?? TimeProvider.System;
+        var todayUtc = clock.GetUtcNow().UtcDateTime.Date;
+        var isOverdue = item.DueDate.HasValue && item.DueDate.Value.Date < todayUtc;
+
         return new ChecklistItemDto
         {
             Id = item.Id,
@@ -320,7 +383,9 @@ public class ChecklistItemService : IChecklistItemService
             IsRequired = item.IsRequired,
             AssignedReviewerId = item.AssignedReviewerId,
             AssignedReviewerName = item.AssignedReviewer?.FullName,
+            DueDays = item.DueDays,
             DueDate = item.DueDate,
+            IsOverdue = isOverdue,
             OrderIndex = item.OrderIndex,
             CreatedAtUtc = item.CreatedAtUtc
         };

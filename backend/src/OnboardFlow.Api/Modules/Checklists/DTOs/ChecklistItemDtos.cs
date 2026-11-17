@@ -12,7 +12,9 @@ public class ChecklistItemDto
     public bool IsRequired { get; set; } = true;
     public Guid? AssignedReviewerId { get; set; }
     public string? AssignedReviewerName { get; set; }
+    public int? DueDays { get; set; }
     public DateTime? DueDate { get; set; }
+    public bool IsOverdue { get; set; }
     public int OrderIndex { get; set; }
     public DateTime CreatedAtUtc { get; set; }
 }
@@ -27,6 +29,9 @@ public class CreateChecklistItemDto
 
     public Guid? AssignedReviewerId { get; set; }
 
+    [Range(1, 365, ErrorMessage = "Due days must be between 1 and 365.")]
+    public int? DueDays { get; set; }
+
     public DateTime? DueDate { get; set; }
 
     public int? OrderIndex { get; set; }
@@ -35,6 +40,14 @@ public class CreateChecklistItemDto
 public class AssignReviewerDto
 {
     public Guid? ReviewerId { get; set; }
+}
+
+public class SetItemDueLimitDto
+{
+    [Range(1, 365, ErrorMessage = "Due days must be between 1 and 365.")]
+    public int? DueDays { get; set; }
+
+    public DateTime? DueDate { get; set; }
 }
 
 public class UpdateChecklistItemDto
@@ -48,6 +61,9 @@ public class UpdateChecklistItemDto
     public bool IsRequired { get; set; } = true;
 
     public Guid? AssignedReviewerId { get; set; }
+
+    [Range(1, 365, ErrorMessage = "Due days must be between 1 and 365.")]
+    public int? DueDays { get; set; }
 
     public DateTime? DueDate { get; set; }
 
