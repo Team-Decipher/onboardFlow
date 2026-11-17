@@ -369,7 +369,9 @@ public class ChecklistItemService : IChecklistItemService
         }
     }
 
-    private static ChecklistItemDto MapToDto(ChecklistItem item, TimeProvider? timeProvider = null)
+    private static ChecklistItemDto MapToDto(ChecklistItem item) => MapToDto(item, null);
+
+    private static ChecklistItemDto MapToDto(ChecklistItem item, TimeProvider? timeProvider)
     {
         var clock = timeProvider ?? TimeProvider.System;
         var todayUtc = clock.GetUtcNow().UtcDateTime.Date;
