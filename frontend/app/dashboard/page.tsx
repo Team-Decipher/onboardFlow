@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 interface WorkflowStep {
@@ -200,8 +201,16 @@ export default function DashboardPage() {
           </span>
         </div>
 
-        {/* User Session & Logout Header Controls */}
+        {/* User Session & Navigation Controls */}
         <div className="flex items-center gap-3">
+          <Link
+            href="/users"
+            className="text-xs bg-[#007a78] hover:bg-[#006866] text-white px-3.5 py-1.5 rounded-full font-medium transition-colors flex items-center gap-1.5 shadow-sm"
+          >
+            <span>Workspace / User accounts</span>
+            <span>→</span>
+          </Link>
+
           {user && (
             <div className="hidden sm:flex items-center gap-2 bg-[#12363e]/70 border border-[#1b4650] px-3 py-1.5 rounded-full text-xs text-[#a0bac0]">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
