@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using OnboardFlow.Api.Common.Authorization;
 using OnboardFlow.Api.Models;
 using OnboardFlow.Api.Modules.Checklists.Domain;
+using OnboardFlow.Api.Modules.Onboarding.Domain;
 using OnboardFlow.Api.Modules.UsersAndAccess.Domain;
 
 namespace OnboardFlow.Api.Data;
@@ -18,6 +19,8 @@ public class AppDbContext : DbContext
     public DbSet<ClientType> ClientTypes => Set<ClientType>();
     public DbSet<ChecklistTemplate> ChecklistTemplates => Set<ChecklistTemplate>();
     public DbSet<ChecklistItem> ChecklistItems => Set<ChecklistItem>();
+    public DbSet<OnboardingCase> OnboardingCases => Set<OnboardingCase>();
+    public DbSet<OnboardingCaseItem> OnboardingCaseItems => Set<OnboardingCaseItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -104,6 +107,55 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(e => e.ChecklistTemplateId);
             entity.HasIndex(e => new { e.ChecklistTemplateId, e.OrderIndex });
+        });
+
+        // OnboardingCase configuration
+        modelBuilder.Entity<OnboardingCase>(entity =>
+        {
+            entity.ToTable("OnboardingCases");
+            entity.HasKey(c => c.Id);
+            entity.Property(c => c.ReferenceCode).IsRequired().HasMaxLength(50);
+            entity.HasIndex(c => c.ReferenceCode).IsUnique();
+            entity.Property(c => c.Status).IsRequired().HasMaxLength(50);
+            entity.Property(c => c.CreatedBy).HasMaxLength(100);
+
+            entity.HasOne(c => c.ClientOrganisation)
+                  .WithMany()
+                  .HasForeignKey(c => c.ClientOrganisationId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(c => c.ClientType)
+                  .WithMany()
+                  .HasForeignKey(c => c.ClientTypeId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(c => c.OwnerUser)
+                  .WithMany()
+                  .HasForeignKey(c => c.OwnerUserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // OnboardingCaseItem configuration
+        modelBuilder.Entity<OnboardingCaseItem>(entity =>
+        {
+            entity.ToTable("OnboardingCaseItems");
+            entity.HasKey(i => i.Id);
+            entity.Property(i => i.DocumentName).IsRequired().HasMaxLength(256);
+            entity.Property(i => i.Status).IsRequired().HasMaxLength(50);
+            entity.Property(i => i.ReviewerName).HasMaxLength(100);
+            entity.Property(i => i.UploadedFileName).HasMaxLength(256);
+
+            entity.HasOne(i => i.OnboardingCase)
+                  .WithMany(c => c.Items)
+                  .HasForeignKey(i => i.OnboardingCaseId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(i => i.AssignedReviewer)
+                  .WithMany()
+                  .HasForeignKey(i => i.AssignedReviewerId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(i => i.OnboardingCaseId);
         });
 
         // Seed initial templates and client types matching Figma design

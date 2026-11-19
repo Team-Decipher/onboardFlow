@@ -11,6 +11,7 @@ export function middleware(request: NextRequest) {
     pathname.startsWith('/admin') ||
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/manager') ||
+    pathname.startsWith('/onboarding-cases') ||
     pathname.startsWith('/reviewer') ||
     pathname.startsWith('/client');
 
@@ -42,6 +43,7 @@ export const config = {
     '/admin/:path*',
     '/dashboard/:path*',
     '/manager/:path*',
+    '/onboarding-cases/:path*',
     '/reviewer/:path*',
     '/client/:path*',
     '/login',
