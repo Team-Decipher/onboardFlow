@@ -227,6 +227,113 @@ namespace OnboardFlow.Api.Migrations
                     b.ToTable("ChecklistItems", (string)null);
                 });
 
+            modelBuilder.Entity("OnboardFlow.Api.Modules.Onboarding.Domain.OnboardingCase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientOrganisationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ReferenceCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("TargetCompletionDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientOrganisationId");
+
+                    b.HasIndex("ClientTypeId");
+
+                    b.HasIndex("OwnerUserId");
+
+                    b.HasIndex("ReferenceCode")
+                        .IsUnique();
+
+                    b.ToTable("OnboardingCases", (string)null);
+                });
+
+            modelBuilder.Entity("OnboardFlow.Api.Modules.Onboarding.Domain.OnboardingCaseItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssignedReviewerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DocumentName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("OnboardingCaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ReviewerName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UploadedFileName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedReviewerId");
+
+                    b.HasIndex("OnboardingCaseId");
+
+                    b.ToTable("OnboardingCaseItems", (string)null);
+                });
+
             modelBuilder.Entity("OnboardFlow.Api.Modules.UsersAndAccess.Domain.AuditEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -383,6 +490,51 @@ namespace OnboardFlow.Api.Migrations
                     b.Navigation("ChecklistTemplate");
                 });
 
+            modelBuilder.Entity("OnboardFlow.Api.Modules.Onboarding.Domain.OnboardingCase", b =>
+                {
+                    b.HasOne("OnboardFlow.Api.Modules.UsersAndAccess.Domain.ClientOrganisation", "ClientOrganisation")
+                        .WithMany()
+                        .HasForeignKey("ClientOrganisationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OnboardFlow.Api.Models.ClientType", "ClientType")
+                        .WithMany()
+                        .HasForeignKey("ClientTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OnboardFlow.Api.Modules.UsersAndAccess.Domain.User", "OwnerUser")
+                        .WithMany()
+                        .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ClientOrganisation");
+
+                    b.Navigation("ClientType");
+
+                    b.Navigation("OwnerUser");
+                });
+
+            modelBuilder.Entity("OnboardFlow.Api.Modules.Onboarding.Domain.OnboardingCaseItem", b =>
+                {
+                    b.HasOne("OnboardFlow.Api.Modules.UsersAndAccess.Domain.User", "AssignedReviewer")
+                        .WithMany()
+                        .HasForeignKey("AssignedReviewerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("OnboardFlow.Api.Modules.Onboarding.Domain.OnboardingCase", "OnboardingCase")
+                        .WithMany("Items")
+                        .HasForeignKey("OnboardingCaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AssignedReviewer");
+
+                    b.Navigation("OnboardingCase");
+                });
+
             modelBuilder.Entity("OnboardFlow.Api.Modules.UsersAndAccess.Domain.User", b =>
                 {
                     b.HasOne("OnboardFlow.Api.Modules.UsersAndAccess.Domain.ClientOrganisation", "ClientOrganisation")
@@ -397,6 +549,11 @@ namespace OnboardFlow.Api.Migrations
                 {
                     b.Navigation("ClientTypes");
 
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("OnboardFlow.Api.Modules.Onboarding.Domain.OnboardingCase", b =>
+                {
                     b.Navigation("Items");
                 });
 

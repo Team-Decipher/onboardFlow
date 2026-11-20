@@ -11,7 +11,13 @@ interface NavItem {
   badge?: string;
 }
 
-export function WorkspaceLayout({ children }: { children: React.ReactNode }) {
+export function WorkspaceLayout({
+  children,
+  breadcrumb,
+}: {
+  children: React.ReactNode;
+  breadcrumb?: string;
+}) {
   const pathname = usePathname();
   const { user, initials, logout } = useAuth();
 
@@ -109,6 +115,10 @@ export function WorkspaceLayout({ children }: { children: React.ReactNode }) {
 
         {/* Sidebar Footer */}
         <div className="pt-4 border-t border-[#173e46] text-xs text-[#6e8e95]">
+          <div className="mb-4">
+            <div className="font-semibold text-slate-300 text-xs">Need a hand?</div>
+            <div className="text-[11px] text-[#5e8b94] mt-0.5">Contact your administrator</div>
+          </div>
           <div className="font-semibold text-slate-200">{user?.fullName || "Guest User"}</div>
           <div className="text-[11px] text-[#5e8b94] capitalize">{user?.role || "Not signed in"}</div>
           {user?.clientOrganisationName && (
@@ -125,7 +135,7 @@ export function WorkspaceLayout({ children }: { children: React.ReactNode }) {
             <span>Workspace</span>
             <span>/</span>
             <span className="text-slate-800 capitalize font-semibold">
-              {pathname.split("/").filter(Boolean).pop() || "Overview"}
+              {breadcrumb || pathname.split("/").filter(Boolean).pop() || "Overview"}
             </span>
           </div>
 
