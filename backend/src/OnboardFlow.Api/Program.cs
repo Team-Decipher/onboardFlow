@@ -1,14 +1,27 @@
 using System;
-using System.Collections.Generic;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using OnboardFlow.Api.Data;
-using OnboardFlow.Api.Models;
+using OnboardFlow.Api.Modules.Checklists.Repositories;
+using OnboardFlow.Api.Modules.Checklists.Services;
+using OnboardFlow.Api.Modules.Onboarding.Services;
+using OnboardFlow.Api.Modules.UsersAndAccess.Authorization;
+using OnboardFlow.Api.Modules.UsersAndAccess.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IChecklistItemRepository, ChecklistItemRepository>();
+builder.Services.AddScoped<IChecklistItemService, ChecklistItemService>();
+builder.Services.AddScoped<IChecklistTemplateService, ChecklistTemplateService>();
+builder.Services.AddScoped<IPasswordHasher, Sha256PasswordHasher>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IOnboardingCaseService, OnboardingCaseService>();
 
 // Database connection
 var connectionString = builder.Configuration.GetConnectionString("Default");
@@ -33,102 +46,62 @@ builder.Services.AddCors(options =>
     });
 });
 
+// --- JWT Authentication Configuration ---
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "dev-only-change-me-use-at-least-32-characters";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "OnboardFlow";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "OnboardFlowClient";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        RoleClaimType = System.Security.Claims.ClaimTypes.Role
+    };
+});
+
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
 
-// Auto-migrate & seed database
-try
+// Apply database migrations automatically on startup
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetService<AppDbContext>();
+    var services = scope.ServiceProvider;
+    var db = services.GetService<AppDbContext>();
     if (db != null)
     {
-        db.Database.EnsureCreated();
-
-        // Ensure PhoneNumber column exists on existing Users table
         try
         {
-            db.Database.ExecuteSqlRaw(@"
-                ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""PhoneNumber"" character varying(50) DEFAULT '' NOT NULL;
-            ");
+            db.Database.Migrate();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Database] Column migration note: {ex.Message}");
-        }
-
-        if (!db.Users.Any())
-        {
-            db.Users.AddRange(new List<UserAccount>
-            {
-                new()
-                {
-                    Id = Guid.NewGuid(),
-                    FullName = "Kasun Jayawardena",
-                    Email = "kasun@example.com",
-                    Role = "Onboarding Manager",
-                    Organisation = "Internal team",
-                    PhoneNumber = "+94 71 884 9201",
-                    Status = "Active",
-                    CreatedAtUtc = DateTime.UtcNow
-                },
-                new()
-                {
-                    Id = Guid.NewGuid(),
-                    FullName = "Amara Silva",
-                    Email = "amara@example.com",
-                    Role = "Reviewer",
-                    Organisation = "Internal team",
-                    PhoneNumber = "+94 76 552 1094",
-                    Status = "Active",
-                    CreatedAtUtc = DateTime.UtcNow
-                },
-                new()
-                {
-                    Id = Guid.NewGuid(),
-                    FullName = "Nimali Perera",
-                    Email = "nimali@example.com",
-                    Role = "Client",
-                    Organisation = "Ceylon Exports",
-                    PhoneNumber = "+94 77 123 4567",
-                    Status = "Active",
-                    CreatedAtUtc = DateTime.UtcNow
-                },
-                new()
-                {
-                    Id = Guid.NewGuid(),
-                    FullName = "Ravindu Fernando",
-                    Email = "ravindu@example.com",
-                    Role = "Reviewer",
-                    Organisation = "Internal team",
-                    PhoneNumber = "+94 78 440 3391",
-                    Status = "Deactivated",
-                    CreatedAtUtc = DateTime.UtcNow
-                }
-            });
-            db.SaveChanges();
-            Console.WriteLine("[Database] Seeded initial user accounts successfully.");
-        }
-        else
-        {
-            // Ensure Nimali Perera has the exact phone number from mockup if currently blank
-            var nimali = db.Users.FirstOrDefault(u => u.Email == "nimali@example.com");
-            if (nimali != null && string.IsNullOrEmpty(nimali.PhoneNumber))
-            {
-                nimali.PhoneNumber = "+94 77 123 4567";
-                db.SaveChanges();
-            }
+            app.Logger.LogError(ex, "An error occurred while migrating the database.");
         }
     }
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"[Database Warning] Could not initialize or seed database: {ex.Message}");
 }
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "OnboardFlow API v1");
+        options.RoutePrefix = "swagger";
+    });
 }
 else
 {
@@ -137,8 +110,18 @@ else
 
 app.UseCors();
 
+// Authentication MUST be before Authorization!
+app.UseAuthentication();
+app.UseMiddleware<ActiveUserMiddleware>(); // 🔒 Rejects deactivated users on all authenticated requests
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Seed initial database records
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await DbSeeder.SeedAsync(dbContext);
+}
 
 app.Run();

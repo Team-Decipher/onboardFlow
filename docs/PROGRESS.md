@@ -12,10 +12,10 @@ Update this file in the same pull request as the work it describes.
 ## Phase 1: Authentication and users
 - [x] User entities and first migration
 - [x] Login and JWT
-- [ ] Role-based access
+- [x] Role-based access
 
 ## Phase 2: Client onboarding
-- [ ] Dynamic Checklist Management & Case Creation
+- [x] Dynamic Checklist Management & Case Creation
 
 ## Phase 3: Document upload and workflow
 - [ ] Secure Document Upload & Version Retention
@@ -31,3 +31,6 @@ Update this file in the same pull request as the work it describes.
 | Date | Task | Owner | PR | Notes |
 |---|---|---|---|---|
 | 2026-11-01 | Setup Docker dev environment | Decipher Group 28 | #setup/docker | Monorepo layout, Dockerfiles, compose, dev verification |
+| 2026-11-17 | US-13: Create Checklist Template | Decipher Group 28 | feature/CODWP-11-us13-create-checklist | POST /api/checklist-templates, admin dashboard, Create modal |
+| 2026-11-17 | US-18: Assign Reviewer to Item | Decipher Group 28 | feature/CODWP-15-us18-assign-reviewer | PUT .../reviewer endpoint, optimistic UI, role-gated |
+| 2026-11-17 | US-19: Set Due Date & Due Days | Decipher Group 28 | feature/CODWP-16-us19-set-due-date | PUT .../due endpoint, DueDays domain property, isOverdue flag, TimeProvider |

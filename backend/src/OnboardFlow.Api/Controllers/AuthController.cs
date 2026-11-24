@@ -1,71 +1,104 @@
-using System;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using OnboardFlow.Api.Common.Authorization;
 using OnboardFlow.Api.Models;
+using OnboardFlow.Api.Modules.UsersAndAccess.Services;
 
 namespace OnboardFlow.Api.Controllers;
 
+/// <summary>
+/// Thin HTTP adapter — delegates all business logic to <see cref="IAuthService"/>.
+/// No data-access, no password hashing, no JWT construction here (loose coupling).
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
+    private readonly IAuthService _authService;
+
+    public AuthController(IAuthService authService)
+    {
+        _authService = authService;
+    }
+
+    // ─── POST /api/auth/login ──────────────────────────────────────────────────
+
     [HttpPost("login")]
-    public ActionResult<LoginResponse> Login([FromBody] LoginRequest request)
+    public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
-        {
             return BadRequest(new { message = "Email and password are required." });
-        }
 
-        // Allow demo accounts or any valid standard credentials for testing
-        string fullName;
-        string role;
-        string company = "Apex Global Advisory Partners";
+        var result = await _authService.LoginAsync(request);
 
-        if (request.Email.Contains("admin", StringComparison.OrdinalIgnoreCase))
-        {
-            fullName = "Sarah Jenkins";
-            role = "Compliance Lead";
-        }
-        else if (request.Email.Contains("partner", StringComparison.OrdinalIgnoreCase))
-        {
-            fullName = "Marcus Vance";
-            role = "Managing Partner";
-        }
-        else
-        {
-            var prefix = request.Email.Split('@')[0];
-            fullName = char.ToUpper(prefix[0]) + prefix.Substring(1).Replace(".", " ");
-            role = "Onboarding Specialist";
-        }
-
-        // Return mock JWT and user profile
-        var mockToken = $"mock-jwt-token-{Guid.NewGuid():N}";
+        if (!result.Succeeded)
+            return Unauthorized(new { message = result.ErrorMessage });
 
         return Ok(new LoginResponse
         {
-            Token = mockToken,
-            Message = "Authentication successful",
-            User = new UserDto
-            {
-                Id = "usr-8821",
-                Email = request.Email,
-                FullName = fullName,
-                Role = role,
-                Company = company
-            }
+            Token     = result.Token!,
+            ExpiresAt = result.ExpiresAt!,
+            Message   = "Authentication successful",
+            User      = result.User!
         });
     }
 
-    [HttpGet("me")]
-    public ActionResult<UserDto> GetCurrentUser()
+    // ─── POST /api/auth/logout ─────────────────────────────────────────────────
+
+    [Authorize]
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
     {
-        return Ok(new UserDto
+        var userId = User.FindFirstValue("userId") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var email  = User.FindFirstValue(ClaimTypes.Email)
+                  ?? User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email);
+        var role   = User.FindFirstValue(ClaimTypes.Role) ?? User.FindFirstValue("role");
+
+        await _authService.LogoutAsync(userId, email, role);
+        return Ok(new { message = "Signed out successfully." });
+    }
+
+    // ─── GET /api/auth/me ─────────────────────────────────────────────────────
+
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<ActionResult<object>> GetCurrentUser()
+    {
+        var userIdString = User.FindFirstValue("userId")
+                        ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (string.IsNullOrEmpty(userIdString))
+            return Unauthorized(new { message = "Invalid user identity." });
+
+        var user = await _authService.GetCurrentUserAsync(userIdString);
+
+        if (user == null)
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "User not found or deactivated." });
+
+        return Ok(new
         {
-            Id = "usr-8821",
-            Email = "sarah.jenkins@onboardflow.com",
-            FullName = "Sarah Jenkins",
-            Role = "Compliance Lead",
-            Company = "Apex Global Advisory Partners"
+            id                   = user.Id,
+            email                = user.Email,
+            fullName             = user.FullName,
+            role                 = user.Role,
+            initials             = user.Initials,
+            company              = user.Company,
+            clientOrganisationId = user.ClientOrganisationId,
+            clientOrganisationName = user.ClientOrganisationName,
+            isActive             = user.IsActive
         });
     }
+
+    // ─── Demo role-restricted endpoints (kept as-is) ──────────────────────────
+
+    [Authorize(Roles = AppRoles.Administrator)]
+    [HttpGet("admin-only")]
+    public IActionResult AdminOnlyEndpoint() =>
+        Ok(new { message = "Welcome Administrator! You have access to this restricted area." });
+
+    [Authorize(Roles = $"{AppRoles.Reviewer},{AppRoles.OnboardingManager}")]
+    [HttpGet("reviews-queue")]
+    public IActionResult ReviewQueueEndpoint() =>
+        Ok(new { message = "Access granted to Reviewers and Onboarding Managers." });
 }
