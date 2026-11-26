@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -83,7 +83,7 @@ export default function UserAccountsPage() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
   // Fetch users from ASP.NET Core API
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch(`${apiUrl}/api/users`);
@@ -103,11 +103,15 @@ export default function UserAccountsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [apiUrl]);
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    const timer = window.setTimeout(() => {
+      void fetchUsers();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [fetchUsers]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -298,7 +302,7 @@ export default function UserAccountsPage() {
           {/* Navigation Links */}
           <nav className="px-3 space-y-1 text-sm font-medium">
             <Link
-              href="/dashboard"
+              href="/organisations"
               className="flex items-center px-3 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-[#123137] transition-colors"
             >
               Client organisations

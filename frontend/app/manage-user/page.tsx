@@ -260,7 +260,7 @@ function ManageUserContent() {
           {/* Navigation Links */}
           <nav className="px-3 space-y-1 text-sm font-medium">
             <Link
-              href="/dashboard"
+              href="/organisations"
               className="flex items-center px-3 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-[#123137] transition-colors"
             >
               Client organisations
