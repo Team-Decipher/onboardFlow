@@ -6,6 +6,7 @@ using OnboardFlow.Api.Common.Authorization;
 using OnboardFlow.Api.Models;
 using OnboardFlow.Api.Modules.Onboarding.Domain;
 using OnboardFlow.Api.Modules.UsersAndAccess.Domain;
+using ClientOrganisation = OnboardFlow.Api.Modules.UsersAndAccess.Domain.ClientOrganisation;
 
 namespace OnboardFlow.Api.Data;
 

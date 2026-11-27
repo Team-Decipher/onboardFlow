@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OnboardFlow.Api.Data;
 using OnboardFlow.Api.Models;
+using OnboardFlow.Api.Modules.Cases.Repositories;
+using OnboardFlow.Api.Modules.Cases.Services;
 using OnboardFlow.Api.Modules.Checklists.Repositories;
 using OnboardFlow.Api.Modules.Checklists.Services;
 using OnboardFlow.Api.Modules.Onboarding.Services;
