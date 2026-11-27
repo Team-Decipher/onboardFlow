@@ -239,8 +239,23 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* User Session & Logout Header Controls */}
+        {/* User Session & Navigation Controls */}
         <div className="flex items-center gap-3">
+          <Link
+            href="/organisations"
+            className="text-xs bg-[#007a78] hover:bg-[#006866] text-white px-3.5 py-1.5 rounded-full font-medium transition-colors flex items-center gap-1.5 shadow-sm"
+          >
+            <span>Client organisations</span>
+            <span>→</span>
+          </Link>
+          <Link
+            href="/users"
+            className="text-xs bg-[#173e46] hover:bg-[#20515b] text-[#c2dce0] hover:text-white px-3.5 py-1.5 rounded-full font-medium transition-colors flex items-center gap-1.5 border border-[#235864]"
+          >
+            <span>User accounts</span>
+            <span>→</span>
+          </Link>
+
           {user && (
             <div className="flex items-center gap-2 bg-[#12363e]/70 border border-[#1b4650] px-3 py-1.5 rounded-full text-xs text-[#a0bac0]">
               <div className="w-5 h-5 rounded-full bg-[#0b7c74] text-white flex items-center justify-center font-bold text-[10px]">

@@ -16,6 +16,7 @@ using OnboardFlow.Api.Modules.Checklists.Domain;
 using OnboardFlow.Api.Modules.Onboarding.DTOs;
 using OnboardFlow.Api.Modules.Onboarding.Services;
 using OnboardFlow.Api.Modules.UsersAndAccess.Domain;
+using ClientOrganisation = OnboardFlow.Api.Modules.UsersAndAccess.Domain.ClientOrganisation;
 using Xunit;
 
 namespace OnboardFlow.Api.Tests;
