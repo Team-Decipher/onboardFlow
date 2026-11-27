@@ -86,6 +86,7 @@ export function WorkspaceLayout({
             {navItems.map((item) => {
               const isActive =
                 pathname === item.href ||
+                (item.href === "/manager/cases" && (pathname === "/cases" || pathname.startsWith("/cases/"))) ||
                 (item.href !== "/dashboard" &&
                   item.href !== "/overview" &&
                   (pathname.startsWith(item.href) ||

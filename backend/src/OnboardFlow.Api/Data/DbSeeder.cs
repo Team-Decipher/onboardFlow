@@ -3,8 +3,10 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using OnboardFlow.Api.Common.Authorization;
+using OnboardFlow.Api.Models;
 using OnboardFlow.Api.Modules.Onboarding.Domain;
 using OnboardFlow.Api.Modules.UsersAndAccess.Domain;
+using ClientOrganisation = OnboardFlow.Api.Modules.UsersAndAccess.Domain.ClientOrganisation;
 
 namespace OnboardFlow.Api.Data;
 
@@ -559,6 +561,90 @@ public static class DbSeeder
             context.OnboardingCases.AddRange(seedCases);
             await context.SaveChangesAsync();
         }
+
+        // 8. Seed Maya Chen and Figma US-10 Cases if not present
+        var mayaUser = await context.Users.FirstOrDefaultAsync(u => u.Email == "maya@example.com" || u.Email == "maya.chen@onboardflow.com");
+        if (mayaUser == null)
+        {
+            mayaUser = new User
+            {
+                Id = Guid.Parse("66666666-6666-6666-6666-666666666666"),
+                Email = "maya@example.com",
+                FullName = "Maya Chen",
+                Role = AppRoles.OnboardingManager,
+                PasswordHash = defaultPasswordHash,
+                IsActive = true,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            context.Users.Add(mayaUser);
+            await context.SaveChangesAsync();
+        }
+
+        var figmaCases = new[]
+        {
+            new { Ref = "CASE-2026-0142", Org = "Aurelia Manufacturing Ltd", Cat = "Enterprise", Date = new DateTime(2026, 10, 12, 0, 0, 0, DateTimeKind.Utc), Stage = "Document review", Status = "In review" },
+            new { Ref = "CASE-2026-0143", Org = "Northstar Studio Ltd", Cat = "SME", Date = new DateTime(2026, 10, 13, 0, 0, 0, DateTimeKind.Utc), Stage = "Document collection", Status = "In review" },
+            new { Ref = "CASE-2026-0144", Org = "Cedar Advisory Ltd", Cat = "Partner", Date = new DateTime(2026, 10, 13, 0, 0, 0, DateTimeKind.Utc), Stage = "Document review", Status = "In review" },
+            new { Ref = "CASE-2026-0145", Org = "Meridian Foods Ltd", Cat = "Enterprise", Date = new DateTime(2026, 10, 14, 0, 0, 0, DateTimeKind.Utc), Stage = "Sequential approval", Status = "In review" },
+            new { Ref = "CASE-2026-0146", Org = "Luma Design Ltd", Cat = "SME", Date = new DateTime(2026, 10, 15, 0, 0, 0, DateTimeKind.Utc), Stage = "Document collection", Status = "In review" },
+            new { Ref = "CASE-2026-0138", Org = "Harbor Partners Ltd", Cat = "Partner", Date = new DateTime(2026, 10, 5, 0, 0, 0, DateTimeKind.Utc), Stage = "Completed", Status = "Completed" },
+        };
+
+        var defaultType = await context.ClientTypes.FirstOrDefaultAsync() 
+            ?? new ClientType { Name = "Standard", Description = "Standard Client Type" };
+
+        foreach (var fc in figmaCases)
+        {
+            if (!await context.OnboardingCases.AnyAsync(c => c.ReferenceCode == fc.Ref))
+            {
+                var org = await context.ClientOrganisations.FirstOrDefaultAsync(o => o.Name == fc.Org);
+                if (org == null)
+                {
+                    org = new ClientOrganisation
+                    {
+                        Name = fc.Org,
+                        Category = fc.Cat,
+                        ContactEmail = $"contact@{fc.Org.ToLower().Replace(" ", "").Replace(".", "")}.com",
+                        CreatedAtUtc = DateTime.UtcNow
+                    };
+                    context.ClientOrganisations.Add(org);
+                    await context.SaveChangesAsync();
+                }
+
+                var newCase = new OnboardingCase
+                {
+                    ReferenceCode = fc.Ref,
+                    ClientOrganisationId = org.Id,
+                    ClientTypeId = defaultType.Id,
+                    OwnerUserId = mayaUser.Id,
+                    TargetCompletionDate = fc.Date.AddDays(14),
+                    Status = fc.Status,
+                    CreatedAtUtc = fc.Date,
+                    CreatedBy = mayaUser.FullName,
+                    Items = new List<OnboardingCaseItem>
+                    {
+                        new()
+                        {
+                            DocumentName = "Company registration",
+                            IsRequired = true,
+                            OrderIndex = 1,
+                            Status = fc.Status == "Completed" ? "Approved" : (fc.Stage == "Document review" ? "In review" : "Missing"),
+                            CreatedAtUtc = fc.Date
+                        },
+                        new()
+                        {
+                            DocumentName = "Financial verification",
+                            IsRequired = true,
+                            OrderIndex = 2,
+                            Status = fc.Status == "Completed" ? "Approved" : (fc.Stage == "Sequential approval" ? "In review" : "Missing"),
+                            CreatedAtUtc = fc.Date
+                        }
+                    }
+                };
+                context.OnboardingCases.Add(newCase);
+            }
+        }
+        await context.SaveChangesAsync();
     }
 }
 

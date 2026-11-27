@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OnboardFlow.Api.Data;
 using OnboardFlow.Api.Models;
+using OnboardFlow.Api.Modules.Cases.Repositories;
+using OnboardFlow.Api.Modules.Cases.Services;
 using OnboardFlow.Api.Modules.Checklists.Repositories;
 using OnboardFlow.Api.Modules.Checklists.Services;
 using OnboardFlow.Api.Modules.Onboarding.Services;
@@ -24,6 +26,8 @@ builder.Services.AddScoped<IChecklistTemplateService, ChecklistTemplateService>(
 builder.Services.AddScoped<IPasswordHasher, Sha256PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IOnboardingCaseService, OnboardingCaseService>();
+builder.Services.AddScoped<ICaseRepository, CaseRepository>();
+builder.Services.AddScoped<ICaseQueryService, CaseQueryService>();
 
 // Database connection
 var connectionString = builder.Configuration.GetConnectionString("Default");
