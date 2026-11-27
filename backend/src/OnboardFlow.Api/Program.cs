@@ -12,9 +12,13 @@ using OnboardFlow.Api.Modules.Cases.Repositories;
 using OnboardFlow.Api.Modules.Cases.Services;
 using OnboardFlow.Api.Modules.Checklists.Repositories;
 using OnboardFlow.Api.Modules.Checklists.Services;
+using OnboardFlow.Api.Controllers;
 using OnboardFlow.Api.Modules.Documents.Application;
+using OnboardFlow.Api.Modules.Documents.Application.Abstractions;
+using OnboardFlow.Api.Modules.Documents.Application.Services;
 using OnboardFlow.Api.Modules.Documents.Application.Storage;
 using OnboardFlow.Api.Modules.Documents.Application.Validation;
+using OnboardFlow.Api.Modules.Documents.Contracts;
 using OnboardFlow.Api.Modules.Documents.Infrastructure;
 using OnboardFlow.Api.Modules.Onboarding.Services;
 using OnboardFlow.Api.Modules.UsersAndAccess.Authorization;
@@ -58,8 +62,16 @@ builder.Services.AddSingleton(sp =>
     return new BlobServiceClient(storageOpts.ConnectionString);
 });
 
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IFileValidator, PassThroughFileValidator>();
 builder.Services.AddScoped<IFileStorage, AzureBlobFileStorage>();
+builder.Services.AddScoped<ICaseAccess, CaseAccessAdapter>();
+builder.Services.AddScoped<IChecklistItemReader, ChecklistItemReaderAdapter>();
+builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+builder.Services.AddScoped<IAuditWriter, AuditWriterAdapter>();
+builder.Services.AddScoped<IDocumentReader, DocumentReader>();
+builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<HardRequestLimitFilter>();
 
 // Database connection
 var connectionString = builder.Configuration.GetConnectionString("Default");
