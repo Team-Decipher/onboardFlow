@@ -5,6 +5,8 @@ using OnboardFlow.Api.Models;
 using OnboardFlow.Api.Modules.Checklists.Domain;
 using OnboardFlow.Api.Modules.Onboarding.Domain;
 using OnboardFlow.Api.Modules.UsersAndAccess.Domain;
+using Organisation = OnboardFlow.Api.Models.ClientOrganisation;
+using UserClientOrganisation = OnboardFlow.Api.Modules.UsersAndAccess.Domain.ClientOrganisation;
 
 namespace OnboardFlow.Api.Data;
 
@@ -14,13 +16,15 @@ public class AppDbContext : DbContext
 
     public DbSet<DbHealthCheck> HealthChecks => Set<DbHealthCheck>();
     public DbSet<User> Users => Set<User>();
-    public DbSet<ClientOrganisation> ClientOrganisations => Set<ClientOrganisation>();
+    public DbSet<UserClientOrganisation> ClientOrganisations => Set<UserClientOrganisation>();
     public DbSet<AuditEntry> AuditLogs => Set<AuditEntry>();
     public DbSet<ClientType> ClientTypes => Set<ClientType>();
     public DbSet<ChecklistTemplate> ChecklistTemplates => Set<ChecklistTemplate>();
     public DbSet<ChecklistItem> ChecklistItems => Set<ChecklistItem>();
     public DbSet<OnboardingCase> OnboardingCases => Set<OnboardingCase>();
     public DbSet<OnboardingCaseItem> OnboardingCaseItems => Set<OnboardingCaseItem>();
+    public DbSet<Organisation> Organisations => Set<Organisation>();
+    public DbSet<LinkedCase> LinkedCases => Set<LinkedCase>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -44,7 +48,7 @@ public class AppDbContext : DbContext
         });
 
         // ClientOrganisation configuration
-        modelBuilder.Entity<ClientOrganisation>(entity =>
+        modelBuilder.Entity<UserClientOrganisation>(entity =>
         {
             entity.ToTable("ClientOrganisations");
             entity.HasKey(o => o.Id);
@@ -230,6 +234,36 @@ public class AppDbContext : DbContext
                 CreatedBy = "System administrator"
             }
         );
+        modelBuilder.Entity<Organisation>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.ClientCode).IsUnique();
+            entity.Property(e => e.ClientCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.City).HasMaxLength(100);
+            entity.Property(e => e.ClientType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PrimaryContact).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.ContactEmail).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.PhoneNumber).HasMaxLength(50);
+            entity.Property(e => e.BusinessRegistrationNumber).HasMaxLength(100);
+            entity.Property(e => e.BusinessAddress).HasMaxLength(500);
+            entity.Property(e => e.CasesSummary).HasMaxLength(100);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+
+            entity.HasMany(e => e.LinkedCases)
+                  .WithOne()
+                  .HasForeignKey(c => c.OrganisationId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<LinkedCase>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.CaseNumber).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(250);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ReviewerName).HasMaxLength(200);
+        });
     }
 }
 

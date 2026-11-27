@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using OnboardFlow.Api.Models;
 using OnboardFlow.Api.Modules.UsersAndAccess.Domain;
+using UserClientOrganisation = OnboardFlow.Api.Modules.UsersAndAccess.Domain.ClientOrganisation;
 
 namespace OnboardFlow.Api.Modules.Onboarding.Domain;
 
@@ -15,7 +16,7 @@ public class OnboardingCase
     public string ReferenceCode { get; set; } = string.Empty;
 
     public Guid ClientOrganisationId { get; set; }
-    public ClientOrganisation? ClientOrganisation { get; set; }
+    public UserClientOrganisation? ClientOrganisation { get; set; }
 
     public Guid ClientTypeId { get; set; }
     public ClientType? ClientType { get; set; }

@@ -24,7 +24,6 @@ public class UsersController : ControllerBase
     {
         _dbContext = dbContext;
     }
-
     /// <summary>
     /// GET /api/users?search=...&role=...&status=...
     /// Search and filter users by search term, role, or active status

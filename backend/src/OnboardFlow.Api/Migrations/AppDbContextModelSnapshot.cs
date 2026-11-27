@@ -112,6 +112,84 @@ namespace OnboardFlow.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("OnboardFlow.Api.Models.ClientOrganisation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ActiveCasesCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("BusinessAddress")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("BusinessRegistrationNumber")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("CasesSummary")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ClientCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ClientType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ContactEmail")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("PhoneNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("PrimaryContact")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientCode")
+                        .IsUnique();
+
+                    b.ToTable("Organisations");
+                });
+
             modelBuilder.Entity("OnboardFlow.Api.Models.ClientType", b =>
                 {
                     b.Property<Guid>("Id")
@@ -173,6 +251,51 @@ namespace OnboardFlow.Api.Migrations
                             Description = "Agreement-led onboarding for partner organisations.",
                             Name = "Partner"
                         });
+                });
+
+            modelBuilder.Entity("OnboardFlow.Api.Models.LinkedCase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CaseNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OrganisationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ProgressPercentage")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ReviewerName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("TargetCompletionDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganisationId");
+
+                    b.ToTable("LinkedCases");
                 });
 
             modelBuilder.Entity("OnboardFlow.Api.Modules.Checklists.Domain.ChecklistItem", b =>
@@ -472,6 +595,15 @@ namespace OnboardFlow.Api.Migrations
                     b.Navigation("DefaultChecklistTemplate");
                 });
 
+            modelBuilder.Entity("OnboardFlow.Api.Models.LinkedCase", b =>
+                {
+                    b.HasOne("OnboardFlow.Api.Models.ClientOrganisation", null)
+                        .WithMany("LinkedCases")
+                        .HasForeignKey("OrganisationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("OnboardFlow.Api.Modules.Checklists.Domain.ChecklistItem", b =>
                 {
                     b.HasOne("OnboardFlow.Api.Modules.UsersAndAccess.Domain.User", "AssignedReviewer")
@@ -550,6 +682,11 @@ namespace OnboardFlow.Api.Migrations
                     b.Navigation("ClientTypes");
 
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("OnboardFlow.Api.Models.ClientOrganisation", b =>
+                {
+                    b.Navigation("LinkedCases");
                 });
 
             modelBuilder.Entity("OnboardFlow.Api.Modules.Onboarding.Domain.OnboardingCase", b =>

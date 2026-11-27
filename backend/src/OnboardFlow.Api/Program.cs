@@ -4,13 +4,13 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OnboardFlow.Api.Data;
-using OnboardFlow.Api.Modules.Cases.Repositories;
-using OnboardFlow.Api.Modules.Cases.Services;
+using OnboardFlow.Api.Models;
 using OnboardFlow.Api.Modules.Checklists.Repositories;
 using OnboardFlow.Api.Modules.Checklists.Services;
 using OnboardFlow.Api.Modules.Onboarding.Services;
 using OnboardFlow.Api.Modules.UsersAndAccess.Authorization;
 using OnboardFlow.Api.Modules.UsersAndAccess.Services;
+using Organisation = OnboardFlow.Api.Models.ClientOrganisation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -93,6 +93,163 @@ using (var scope = app.Services.CreateScope())
         catch (Exception ex)
         {
             app.Logger.LogError(ex, "An error occurred while migrating the database.");
+        }
+
+        // Seed Client Organisations matching Screen 10 & 11 mockups
+        if (!db.Organisations.Any())
+        {
+            var ceylonId = Guid.NewGuid();
+            var lankaId = Guid.NewGuid();
+            var oceanicId = Guid.NewGuid();
+            var lotusId = Guid.NewGuid();
+
+            var orgs = new List<Organisation>
+            {
+                new()
+                {
+                    Id = ceylonId,
+                    ClientCode = "CLI-0018",
+                    Name = "Ceylon Exports (Pvt) Ltd",
+                    City = "Colombo",
+                    ClientType = "Enterprise",
+                    PrimaryContact = "Nimali Perera",
+                    ContactEmail = "nimali@example.com",
+                    PhoneNumber = "+94 11 234 5678",
+                    BusinessRegistrationNumber = "PV 123456",
+                    BusinessAddress = "42 Marine Drive, Colombo 03",
+                    ActiveCasesCount = 1,
+                    CasesSummary = "1 active",
+                    Status = "Active",
+                    CreatedAtUtc = DateTime.UtcNow.AddMonths(-3),
+                    LinkedCases = new List<LinkedCase>
+                    {
+                        new()
+                        {
+                            Id = Guid.NewGuid(),
+                            OrganisationId = ceylonId,
+                            CaseNumber = "OBF-2026-018",
+                            Title = "Enterprise Statutory KYC & Compliance Onboarding",
+                            Status = "Active",
+                            ProgressPercentage = 67,
+                            ReviewerName = "Kasun Jayawardena",
+                            TargetCompletionDate = DateTime.UtcNow.AddDays(10),
+                            CreatedAtUtc = DateTime.UtcNow.AddDays(-20)
+                        }
+                    }
+                },
+                new()
+                {
+                    Id = lankaId,
+                    ClientCode = "CLI-0017",
+                    Name = "Lanka Foods",
+                    City = "Kandy",
+                    ClientType = "SME",
+                    PrimaryContact = "Dilan Fernando",
+                    ContactEmail = "dilan@lankafoods.lk",
+                    PhoneNumber = "+94 81 223 4567",
+                    BusinessRegistrationNumber = "PV 987654",
+                    BusinessAddress = "15 Peradeniya Road, Kandy",
+                    ActiveCasesCount = 2,
+                    CasesSummary = "2 active",
+                    Status = "Active",
+                    CreatedAtUtc = DateTime.UtcNow.AddMonths(-4),
+                    LinkedCases = new List<LinkedCase>
+                    {
+                        new()
+                        {
+                            Id = Guid.NewGuid(),
+                            OrganisationId = lankaId,
+                            CaseNumber = "OBF-2026-017A",
+                            Title = "SME Fast-Track Supplier Documentation",
+                            Status = "Active",
+                            ProgressPercentage = 45,
+                            ReviewerName = "Amara Silva",
+                            TargetCompletionDate = DateTime.UtcNow.AddDays(5),
+                            CreatedAtUtc = DateTime.UtcNow.AddDays(-15)
+                        },
+                        new()
+                        {
+                            Id = Guid.NewGuid(),
+                            OrganisationId = lankaId,
+                            CaseNumber = "OBF-2026-017B",
+                            Title = "Export Quality & Standard Certification Verification",
+                            Status = "Active",
+                            ProgressPercentage = 80,
+                            ReviewerName = "Kasun Jayawardena",
+                            TargetCompletionDate = DateTime.UtcNow.AddDays(18),
+                            CreatedAtUtc = DateTime.UtcNow.AddDays(-10)
+                        }
+                    }
+                },
+                new()
+                {
+                    Id = oceanicId,
+                    ClientCode = "CLI-0016",
+                    Name = "Oceanic Partners",
+                    City = "Galle",
+                    ClientType = "Partner",
+                    PrimaryContact = "Shanika de Silva",
+                    ContactEmail = "shanika@oceanicpartners.lk",
+                    PhoneNumber = "+94 91 334 5678",
+                    BusinessRegistrationNumber = "PV 456123",
+                    BusinessAddress = "88 Fort Light St, Galle",
+                    ActiveCasesCount = 1,
+                    CasesSummary = "1 active",
+                    Status = "Active",
+                    CreatedAtUtc = DateTime.UtcNow.AddMonths(-6),
+                    LinkedCases = new List<LinkedCase>
+                    {
+                        new()
+                        {
+                            Id = Guid.NewGuid(),
+                            OrganisationId = oceanicId,
+                            CaseNumber = "OBF-2026-016",
+                            Title = "Channel Partner Legal Agreement & NDA Vetting",
+                            Status = "Active",
+                            ProgressPercentage = 50,
+                            ReviewerName = "Amara Silva",
+                            TargetCompletionDate = DateTime.UtcNow.AddDays(7),
+                            CreatedAtUtc = DateTime.UtcNow.AddDays(-12)
+                        }
+                    }
+                },
+                new()
+                {
+                    Id = lotusId,
+                    ClientCode = "CLI-0015",
+                    Name = "Lotus Digital",
+                    City = "Colombo",
+                    ClientType = "SME",
+                    PrimaryContact = "Ruwan Jayasuriya",
+                    ContactEmail = "ruwan@lotusdigital.lk",
+                    PhoneNumber = "+94 11 889 0123",
+                    BusinessRegistrationNumber = "PV 321654",
+                    BusinessAddress = "120 Galle Road, Colombo 03",
+                    ActiveCasesCount = 0,
+                    CasesSummary = "Completed",
+                    Status = "Active",
+                    CreatedAtUtc = DateTime.UtcNow.AddMonths(-8),
+                    LinkedCases = new List<LinkedCase>
+                    {
+                        new()
+                        {
+                            Id = Guid.NewGuid(),
+                            OrganisationId = lotusId,
+                            CaseNumber = "OBF-2026-015",
+                            Title = "Digital Service Provider Compliance Review",
+                            Status = "Completed",
+                            ProgressPercentage = 100,
+                            ReviewerName = "Ravindu Fernando",
+                            TargetCompletionDate = DateTime.UtcNow.AddDays(-30),
+                            CreatedAtUtc = DateTime.UtcNow.AddDays(-60)
+                        }
+                    }
+                }
+            };
+
+            db.Organisations.AddRange(orgs);
+            db.SaveChanges();
+            Console.WriteLine("[Database] Seeded initial client organisations successfully.");
         }
     }
 }
