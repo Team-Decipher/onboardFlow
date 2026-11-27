@@ -9,6 +9,8 @@ using OnboardFlow.Api.Modules.Cases.Repositories;
 using OnboardFlow.Api.Modules.Cases.Services;
 using OnboardFlow.Api.Modules.Checklists.Repositories;
 using OnboardFlow.Api.Modules.Checklists.Services;
+using OnboardFlow.Api.Modules.Documents.Application;
+using OnboardFlow.Api.Modules.Documents.Infrastructure;
 using OnboardFlow.Api.Modules.Onboarding.Services;
 using OnboardFlow.Api.Modules.UsersAndAccess.Authorization;
 using OnboardFlow.Api.Modules.UsersAndAccess.Services;
@@ -29,12 +31,27 @@ builder.Services.AddScoped<IOnboardingCaseService, OnboardingCaseService>();
 builder.Services.AddScoped<ICaseRepository, CaseRepository>();
 builder.Services.AddScoped<ICaseQueryService, CaseQueryService>();
 
+// Documents module options (validated on startup)
+builder.Services.AddOptions<DocumentsOptions>()
+    .Bind(builder.Configuration.GetSection(DocumentsOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddOptions<AzureStorageOptions>()
+    .Bind(builder.Configuration.GetSection(AzureStorageOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
 // Database connection
 var connectionString = builder.Configuration.GetConnectionString("Default");
 if (!string.IsNullOrEmpty(connectionString))
 {
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseNpgsql(connectionString));
+
+    builder.Services.AddDbContext<DocumentsDbContext>(options =>
+        options.UseNpgsql(connectionString, npgsql =>
+            npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "documents")));
 }
 
 // CORS setup
@@ -96,6 +113,23 @@ using (var scope = app.Services.CreateScope())
         {
             app.Logger.LogError(ex, "An error occurred while migrating the database.");
         }
+    }
+
+    var documentsDb = services.GetService<DocumentsDbContext>();
+    if (documentsDb != null)
+    {
+        try
+        {
+            documentsDb.Database.Migrate();
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogError(ex, "An error occurred while migrating the documents database schema.");
+        }
+    }
+
+    if (db != null)
+    {
 
         // Seed Client Organisations matching Screen 10 & 11 mockups
         if (!db.Organisations.Any())
