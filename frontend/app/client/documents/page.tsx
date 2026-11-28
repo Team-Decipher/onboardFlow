@@ -42,7 +42,10 @@ export default function ClientDocumentsPage() {
         if (!res.ok) {
           throw new Error("Could not load your onboarding cases.");
         }
-        const data = (await res.json()) as CaseDetailSummary[];
+        const raw = (await res.json()) as
+          | CaseDetailSummary[]
+          | { items?: CaseDetailSummary[] };
+        const data = Array.isArray(raw) ? raw : raw.items ?? [];
         setCases(data);
         if (data.length > 0) {
           setSelectedCaseId(data[0].id);
