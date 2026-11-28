@@ -13,7 +13,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -23,10 +23,7 @@ services:
     image: mcr.microsoft.com/azure-storage/azurite
     restart: unless-stopped
     command: >
-      azurite-blob
-      --blobHost 0.0.0.0
-      --location /data
-      --skipApiVersionCheck
+      azurite-blob --blobHost 0.0.0.0 --location /data --skipApiVersionCheck
     ports:
       - "127.0.0.1:${BLOB_PORT:-10000}:10000"
     volumes:
@@ -53,7 +50,10 @@ services:
       DOTNET_USE_POLLING_FILE_WATCHER: ${DOTNET_USE_POLLING_FILE_WATCHER:-0}
       # Adapt these names to the keys your appsettings / code actually read.
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}"
-      Storage__BlobConnectionString: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;"
+      # Azure Blob Storage — set BLOB_CONNECTION_STRING in .env for production Azure;
+      # falls back to local Azurite emulator when the variable is unset.
+      AzureStorage__ConnectionString: ${BLOB_CONNECTION_STRING:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;}
+      AzureStorage__ContainerName: documents
       Jwt__Key: ${JWT_KEY}
       Brevo__ApiKey: ${BREVO_API_KEY:-}
       Cors__AllowedOrigins__0: http://localhost:${FRONTEND_PORT:-3000}

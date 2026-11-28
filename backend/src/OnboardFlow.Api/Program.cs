@@ -1,7 +1,10 @@
 using System;
 using System.Text;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using OnboardFlow.Api.Data;
 using OnboardFlow.Api.Models;
@@ -9,6 +12,14 @@ using OnboardFlow.Api.Modules.Cases.Repositories;
 using OnboardFlow.Api.Modules.Cases.Services;
 using OnboardFlow.Api.Modules.Checklists.Repositories;
 using OnboardFlow.Api.Modules.Checklists.Services;
+using OnboardFlow.Api.Controllers;
+using OnboardFlow.Api.Modules.Documents.Application;
+using OnboardFlow.Api.Modules.Documents.Application.Abstractions;
+using OnboardFlow.Api.Modules.Documents.Application.Services;
+using OnboardFlow.Api.Modules.Documents.Application.Storage;
+using OnboardFlow.Api.Modules.Documents.Application.Validation;
+using OnboardFlow.Api.Modules.Documents.Contracts;
+using OnboardFlow.Api.Modules.Documents.Infrastructure;
 using OnboardFlow.Api.Modules.Onboarding.Services;
 using OnboardFlow.Api.Modules.UsersAndAccess.Authorization;
 using OnboardFlow.Api.Modules.UsersAndAccess.Services;
@@ -29,12 +40,49 @@ builder.Services.AddScoped<IOnboardingCaseService, OnboardingCaseService>();
 builder.Services.AddScoped<ICaseRepository, CaseRepository>();
 builder.Services.AddScoped<ICaseQueryService, CaseQueryService>();
 
+// Documents module options (validated on startup)
+builder.Services.AddOptions<DocumentsOptions>()
+    .Bind(builder.Configuration.GetSection(DocumentsOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddOptions<AzureStorageOptions>()
+    .Bind(builder.Configuration.GetSection(AzureStorageOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddSingleton(sp =>
+{
+    var storageOpts = sp.GetRequiredService<IOptions<AzureStorageOptions>>().Value;
+    if (string.IsNullOrWhiteSpace(storageOpts.ConnectionString))
+    {
+        throw new InvalidOperationException(
+            "AzureStorage:ConnectionString is not configured. Set it via user-secrets, AzureStorage__ConnectionString, or appsettings.Development.json.");
+    }
+    return new BlobServiceClient(storageOpts.ConnectionString);
+});
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IFileValidator, PassThroughFileValidator>();
+builder.Services.AddScoped<IFileStorage, AzureBlobFileStorage>();
+builder.Services.AddScoped<ICaseAccess, CaseAccessAdapter>();
+builder.Services.AddScoped<IChecklistItemReader, ChecklistItemReaderAdapter>();
+builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+builder.Services.AddScoped<IAuditWriter, AuditWriterAdapter>();
+builder.Services.AddScoped<IDocumentReader, DocumentReader>();
+builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<HardRequestLimitFilter>();
+
 // Database connection
 var connectionString = builder.Configuration.GetConnectionString("Default");
 if (!string.IsNullOrEmpty(connectionString))
 {
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseNpgsql(connectionString));
+
+    builder.Services.AddDbContext<DocumentsDbContext>(options =>
+        options.UseNpgsql(connectionString, npgsql =>
+            npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "documents")));
 }
 
 // CORS setup
@@ -96,6 +144,42 @@ using (var scope = app.Services.CreateScope())
         {
             app.Logger.LogError(ex, "An error occurred while migrating the database.");
         }
+    }
+
+    var documentsDb = services.GetService<DocumentsDbContext>();
+    if (documentsDb != null)
+    {
+        try
+        {
+            documentsDb.Database.Migrate();
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogError(ex, "An error occurred while migrating the documents database schema.");
+        }
+    }
+
+    if (app.Environment.IsDevelopment())
+    {
+        try
+        {
+            var blobService = services.GetService<BlobServiceClient>();
+            var storageOpts = services.GetService<IOptions<AzureStorageOptions>>()?.Value;
+            if (blobService != null && !string.IsNullOrWhiteSpace(storageOpts?.ContainerName))
+            {
+                await blobService
+                    .GetBlobContainerClient(storageOpts.ContainerName)
+                    .CreateIfNotExistsAsync(PublicAccessType.None);
+            }
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogWarning(ex, "Could not ensure Azure Blob container exists on startup.");
+        }
+    }
+
+    if (db != null)
+    {
 
         // Seed Client Organisations matching Screen 10 & 11 mockups
         if (!db.Organisations.Any())
